@@ -8,6 +8,7 @@ object ScalaUtilsBuild extends Build {
   val JavaVersion = "1.7"
   val ScalaVersion = "2.11.1"
   val TomcatVersion = "7.0.22"
+  val artifactory = "https://artifactory.oph.ware.fi/artifactory"
 
   lazy val project = Project (
     "scala-utils",
@@ -22,8 +23,8 @@ object ScalaUtilsBuild extends Build {
       scalacOptions ++= Seq("-target:jvm-1.7", "-deprecation"),
       resolvers += "Local Maven Repository" at "file://"+Path.userHome.absolutePath+"/.m2/repository",
       resolvers += Classpaths.typesafeReleases,
-      resolvers += "oph-sade-artifactory-releases" at "http://penaali.hard.ware.fi/artifactory/oph-sade-release-local",
-      resolvers += "oph-sade-artifactory-snapshots" at "http://penaali.hard.ware.fi/artifactory/oph-sade-snapshot-local",
+      resolvers += "oph-sade-artifactory-releases" at artifactory + "/oph-sade-release-local",
+      resolvers += "oph-sade-artifactory-snapshots" at artifactory + "/oph-sade-snapshot-local",
       parallelExecution in Test := false,
       libraryDependencies ++= Seq(
         "org.slf4j" % "slf4j-api" % "1.7.7",
@@ -31,7 +32,6 @@ object ScalaUtilsBuild extends Build {
       ),
       credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
       publishTo := {
-        val artifactory = "http://penaali.hard.ware.fi/artifactory"
         if (Version.trim.endsWith("SNAPSHOT"))
           Some("snapshots" at artifactory + "/oph-sade-snapshot-local;build.timestamp=" + new java.util.Date().getTime)
         else
