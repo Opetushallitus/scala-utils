@@ -7,6 +7,8 @@ trait HttpClient {
   def httpGet(url: String, options: HttpOptions.HttpOption*) : HttpRequest
   def httpPost(url: String, data: Option[String]) : HttpRequest
   def httpPost(url: String, data: Option[String], options: HttpOptions.HttpOption*) : HttpRequest
+  def httpPut(url: String) : HttpRequest
+  def httpPut(url: String, options: HttpOptions.HttpOption*) : HttpRequest
 }
 
 object DefaultHttpClient extends HttpClient {
@@ -29,6 +31,14 @@ object DefaultHttpClient extends HttpClient {
       case None => Http.post(url)
       case Some(data) => Http.postData(url, data)
     }, options: _*))
+  }
+
+  def httpPut(url: String) : HttpRequest = {
+    httpPut(url, defaultOptions: _*)
+  }
+
+  def httpPut(url: String, options: HttpOptions.HttpOption*) : HttpRequest = {
+    new DefaultHttpRequest(changeOptions(Http(url).method("put"), options: _*))
   }
 
   private def changeOptions(request: Http.Request, options: HttpOptions.HttpOption*): Http.Request = {
