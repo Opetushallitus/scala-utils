@@ -29,7 +29,8 @@ object ScalaUtilsBuild extends Build {
       libraryDependencies ++= Seq(
         "org.slf4j" % "slf4j-api" % "1.7.7",
         "com.typesafe" % "config" % "1.2.1",
-        "com.fasterxml.jackson.core" % "jackson-databind" % "2.3.1",
+        "org.json4s" %% "json4s-jackson" % "3.2.10",
+        "org.json4s" %% "json4s-ext" % "3.2.10",
         "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.4.1",
         "org.scalatra.scalate" %% "scalate-core" % "1.7.0",
         "org.scalaj" %% "scalaj-http" % "0.3.15"
