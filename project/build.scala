@@ -28,6 +28,10 @@ object ScalaUtilsBuild extends Build {
       parallelExecution in Test := false,
       libraryDependencies ++= Seq(
         "org.slf4j" % "slf4j-api" % "1.7.7",
+        "com.typesafe" % "config" % "1.2.1",
+        "com.fasterxml.jackson.core" % "jackson-databind" % "2.3.1",
+        "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.4.1",
+        "org.scalatra.scalate" %% "scalate-core" % "1.7.0",
         "org.scalaj" %% "scalaj-http" % "0.3.15"
       ),
       credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
