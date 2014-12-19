@@ -13,7 +13,7 @@ import org.fusesource.scalate.support.FileTemplateSource
 import scala.collection.JavaConverters._
 
 object ConfigTemplateProcessor {
-  def createSettings[T <: ApplicationSettings](projectName: String, attributesFile: String, applicationSettingsParser: ApplicationSettingsParser[T]): T = {
+  def createSettings[T <: ApplicationSettings](projectName: String, attributesFile: String)(implicit applicationSettingsParser: ApplicationSettingsParser[T]): T = {
     val templateFile: String = "src/main/resources/oph-configuration/" + projectName + ".properties.template"
     val templatedData = ConfigTemplateProcessor.processTemplate(templateFile, attributesFile)
     val properties = new Properties()
