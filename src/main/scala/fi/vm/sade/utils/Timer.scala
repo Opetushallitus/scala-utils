@@ -3,7 +3,7 @@ package fi.vm.sade.utils
 import fi.vm.sade.utils.slf4j.Logging
 
 object Timer extends Logging {
-  def timed[R](thresholdMs: Int = 0, blockname: String = "")(block: => R): R = {
+  def timed[R](blockname: String = "", thresholdMs: Int = 0)(block: => R): R = {
     val t0 = System.nanoTime()
     val result = block
     val t1 = System.nanoTime()
