@@ -2,7 +2,7 @@ package fi.vm.sade.utils.config
 
 import java.io.File
 
-import com.typesafe.config.{ConfigFactory, ConfigValueFactory, Config}
+import com.typesafe.config.{ConfigException, ConfigFactory, ConfigValueFactory, Config}
 import fi.vm.sade.utils.slf4j.Logging
 
 object ApplicationSettingsLoader extends Logging {
@@ -19,9 +19,11 @@ object ApplicationSettingsLoader extends Logging {
 
 abstract class ApplicationSettings(config: Config) {
 
-  import scala.collection.JavaConversions._
+  val environment = Environment(getStringWithDefault("environment", "default"))
 
   def toProperties = {
+    import scala.collection.JavaConversions._
+
     val keys = config.entrySet().toList.map(_.getKey)
     keys.map { key =>
       (key, config.getString(key))
@@ -38,6 +40,14 @@ abstract class ApplicationSettings(config: Config) {
       config.getString("dbname")
     )
   }
+
+  def getStringWithDefault(path: String, default: String) = {
+    try {
+      config.getString(path)
+    } catch {
+      case _ :ConfigException.Missing | _ :ConfigException.Null => default
+    }
+  }
 }
 
 trait ApplicationSettingsParser[T <: ApplicationSettings] {
@@ -47,3 +57,10 @@ trait ApplicationSettingsParser[T <: ApplicationSettings] {
 }
 
 case class MongoConfig(url: String, dbname: String)
+
+case class Environment(val name: String) {
+  def isLuokka = name == "ophitest"
+  def isReppu = name == "oph"
+  def isProduction = name == "ophprod"
+  def isQA = name == "ophp"
+}
