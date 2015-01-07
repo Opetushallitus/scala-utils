@@ -6,6 +6,8 @@ Server-side utils library for OPH services written in Scala.
 The relevant parts:
 
 - [HttpClient](src/main/scala/fi/vm/sade/utils/http/HttpClient.scala)
+- [CasClient](src/main/scala/fi/vm/sade/utils/cas/CasClient.scala)
+
 
 This library is currently built and published to OPH artifactory on the Bamboo CI server.
 
