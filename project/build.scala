@@ -10,6 +10,10 @@ object ScalaUtilsBuild extends Build {
   val TomcatVersion = "7.0.22"
   val artifactory = "https://artifactory.oph.ware.fi/artifactory"
 
+  if(!System.getProperty("java.version").startsWith(JavaVersion)) {
+    throw new IllegalStateException("Wrong java version (required " + JavaVersion + "): " + System.getProperty("java.version"))
+  }
+
   lazy val project = Project (
     "scala-utils",
     file("."),
