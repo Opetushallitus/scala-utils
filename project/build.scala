@@ -38,7 +38,8 @@ object ScalaUtilsBuild extends Build {
         "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.4.1",
         "org.scalatra.scalate" %% "scalate-core" % "1.7.0",
         "org.scalaj" %% "scalaj-http" % "0.3.15",
-        "de.flapdoodle.embed" % "de.flapdoodle.embed.mongo" % "1.46.0"
+        "de.flapdoodle.embed" % "de.flapdoodle.embed.mongo" % "1.46.0",
+        "org.specs2" %% "specs2" % "2.3.12" % "test"
       ),
       credentials += Credentials(Path.userHome / ".ivy2" / ".credentials"),
       publishTo := {
