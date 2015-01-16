@@ -12,7 +12,6 @@ import org.fusesource.scalate.support.FileTemplateSource
 import scala.collection.JavaConverters._
 
 object TemplateProcessor {
-  val engine = new TemplateEngine
 
   def processMustacheWithYamlAttributes(templatePath: String, yamlFile: String): String = {
     val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
@@ -20,10 +19,12 @@ object TemplateProcessor {
     val rawValue = mapper.readValue(new FileInputStream(yamlFile), mapType).asInstanceOf[HashMap[String, String]]
     val attributes: Map[String, Any] = rawValue.asScala.toMap.asInstanceOf[Map[String, Any]]
 
+    val engine = new TemplateEngine
     engine.layout(new FileTemplateSource(new File(templatePath), templatePath + ".mustache"), attributes)
   }
 
   def processTemplate(templatePath: String, attributes: Map[String, Any]): String = {
+    val engine = new TemplateEngine
     engine.layout(new FileTemplateSource(new File(templatePath), templatePath), attributes)
   }
 }
