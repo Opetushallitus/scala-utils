@@ -8,7 +8,7 @@ class TemplateProcessorSpec extends Specification {
       TemplateProcessor.processMustacheWithYamlAttributes("src/test/resources/template/test.properties.template", "src/test/resources/template/test.properties.yml") === "value=abc\n"
     }
     "process simple map" in {
-      TemplateProcessor.processMustache("src/test/resources/template/list.mustache", Map(
+      TemplateProcessor.processTemplate("src/test/resources/template/list.mustache", Map(
         "repo" -> List(
           Map("name" -> "resque"),
           Map("name" -> "hub"),
