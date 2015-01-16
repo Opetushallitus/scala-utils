@@ -1,7 +1,6 @@
 package fi.vm.sade.utils.template
 
 import java.io.{File, FileInputStream}
-import java.util
 import java.util.HashMap
 
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -13,7 +12,6 @@ import org.fusesource.scalate.support.FileTemplateSource
 import scala.collection.JavaConverters._
 
 object TemplateProcessor {
-  val engine = new TemplateEngine
 
   def processMustacheWithYamlAttributes(templatePath: String, yamlFile: String): String = {
     val mapper: ObjectMapper = new ObjectMapper(new YAMLFactory())
@@ -25,6 +23,7 @@ object TemplateProcessor {
   }
 
   def processMustache(templatePath: String, attributes: Map[String, Any]): String = {
+    val engine = new TemplateEngine
     engine.layout(new FileTemplateSource(new File(templatePath), "template.mustache"), attributes)
   }
 }
