@@ -21,10 +21,10 @@ object TemplateProcessor {
     val mapType: MapType = mapper.getTypeFactory.constructMapType(classOf[HashMap[String, String]], classOf[String], classOf[String])
     val rawValue = mapper.readValue(new FileInputStream(yamlFile), mapType).asInstanceOf[HashMap[String, String]]
     val attributes: Map[String, Any] = rawValue.asScala.toMap.asInstanceOf[Map[String, Any]]
-    engine.layout(new FileTemplateSource(new File(templatePath), templatePath + ".mustache"), attributes)
+    engine.layout(engine.source(templatePath, "mustache"), attributes)
   }
 
   def processTemplate(templatePath: String, attributes: Map[String, Any]): String = {
-    engine.layout(new FileTemplateSource(new File(templatePath), templatePath), attributes)
+    engine.layout(engine.source(templatePath), attributes)
   }
 }

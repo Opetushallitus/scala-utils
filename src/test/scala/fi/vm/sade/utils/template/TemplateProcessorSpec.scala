@@ -16,7 +16,7 @@ class TemplateProcessorSpec extends Specification {
           Map("name" -> "rip")
         )
       )) === "List:\n<b>resque</b>\n<b>hub</b>\n<b>rip</b>\n";
-      TemplateProcessor.processTemplate("src/test/resources/template/list.mustache", Map(
+      TemplateProcessor.processTemplate("/template/list.mustache", Map(
         "repo" -> List(
           Map("name" -> "resque"),
           Map("name" -> "hub"),
