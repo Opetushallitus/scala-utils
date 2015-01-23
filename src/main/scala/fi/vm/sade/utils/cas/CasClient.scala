@@ -29,12 +29,12 @@ class CasClient(config: CasConfig) extends TicketClient with Logging {
     }
 
     val casUrl: String = config.casRoot + "/serviceValidate"
-    val (responseCode, headers, resultString) = DefaultHttpClient.httpGet(casUrl).param("service", ticket.service).param("ticket", ticket.ticket)
-      .responseWithHeaders
+    val (responseStatus, _, resultString) = DefaultHttpClient.httpGet(casUrl).param("service", ticket.service).param("ticket", ticket.ticket)
+      .responseWithHeaders()
 
-    responseCode match {
+    responseStatus match {
       case 200 => parseCasResponse(resultString)
-      case _ => failure("CAS server at " + casUrl + " responded with status "+ responseCode)
+      case _ => failure("CAS server at " + casUrl + " responded with status "+ responseStatus)
     }
   }
 
@@ -42,12 +42,12 @@ class CasClient(config: CasConfig) extends TicketClient with Logging {
     val casTicketUrl = config.casRoot + "/v1/tickets"
 
     def getTicketGrantingTicket(username: String, password: String): Option[String] = {
-      val (responseCode, headersMap, resultString) = DefaultHttpClient.httpPost(casTicketUrl, None)
+      val (responseStatus, headersMap, resultString) = DefaultHttpClient.httpPost(casTicketUrl, None)
         .param("username", username)
         .param("password", password)
-        .responseWithHeaders
+        .responseWithHeaders()
 
-      responseCode match {
+      responseStatus match {
         case 201 => {
           val ticketPattern = """.*/([^/]+)""".r
           val headerValue = headersMap.getOrElse("Location",List("no location header")).head
@@ -60,7 +60,7 @@ class CasClient(config: CasConfig) extends TicketClient with Logging {
           }
         }
         case _ => {
-          logger.error("Invalid response code (" + responseCode + ") from CAS server. Response body: " + resultString)
+          logger.error("Invalid response status (" + responseStatus + ") from CAS server. Response body: " + resultString)
           None
         }
       }
@@ -69,11 +69,11 @@ class CasClient(config: CasConfig) extends TicketClient with Logging {
     getTicketGrantingTicket(service.username, service.password).flatMap { ticket =>
       DefaultHttpClient.httpPost(casTicketUrl + "/" + ticket, None)
         .param("service", service.service)
-        .responseWithHeaders match {
-        case (code, _, ticket) if (code >= 200 && code < 300) =>
-          Some(ticket)
-        case (code, _, body) =>
-          logger.warn("Service ticket creation failed with response code " + code + ". Body: " + body)
+        .responseWithHeaders() match {
+        case (status, _, ticketInResponse) if status >= 200 && status < 300 =>
+          Some(ticketInResponse)
+        case (status, _, body) =>
+          logger.warn("Service ticket creation failed with response status " + status + ". Body: " + body)
           None
       }
     }
