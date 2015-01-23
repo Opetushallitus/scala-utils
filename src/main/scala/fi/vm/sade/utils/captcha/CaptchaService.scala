@@ -20,19 +20,14 @@ trait CaptchaServiceComponent {
       else {
         val recaptchaCheckRequest = DefaultHttpClient.httpGet(settings.recaptchaUrl + "?secret=" + settings.recaptchaSecret + "&response=" + captcha)
 
-        val response = recaptchaCheckRequest.response()
-        val checkResult = for (
-          json <- response;
-          success <- (parse(json) \ "success").extractOpt[Boolean]
-        ) yield success
-
-        checkResult match {
-          case Some(success) => {
-            if (!success) logger.warn(s"Captcha check failed with response: $response")
+        recaptchaCheckRequest.responseWithHeaders() match {
+          case (200, _, result) => {
+            val success = (parse(result) \ "success").extract[Boolean]
+            if (!success) logger.warn(s"Captcha check failed with response: $result")
             success
           }
-          case None => {
-            throw new IllegalStateException(s"Captcha check request failed with response: $response")
+          case (errorcode, _, result) => {
+            throw new IllegalStateException(s"Captcha check request failed with responsecode $errorcode and response $result")
           }
         }
       }
