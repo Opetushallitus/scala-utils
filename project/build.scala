@@ -32,6 +32,7 @@ object ScalaUtilsBuild extends Build {
       parallelExecution in Test := false,
       libraryDependencies ++= Seq(
         "org.slf4j" % "slf4j-api" % "1.7.7",
+        "org.slf4j" % "slf4j-log4j12" %"1.7.6",
         "com.typesafe" % "config" % "1.2.1",
         "org.json4s" %% "json4s-jackson" % "3.2.10",
         "org.json4s" %% "json4s-ext" % "3.2.10",
