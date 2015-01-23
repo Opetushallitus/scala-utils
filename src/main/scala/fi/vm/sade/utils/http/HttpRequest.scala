@@ -32,7 +32,7 @@ class DefaultHttpRequest(private val request: Request) extends HttpRequest with 
       }
       case t: Throwable => {
         logUnexpectedError(t)
-        (500, HashMap(), t.getMessage)
+        (500, HashMap(), t.toString)
       }
     }
   }
