@@ -18,7 +18,7 @@ class CaptchaServiceSpec extends Specification {
   }
 
   "CaptchaService with no secret" should {
-    val config: Map[String, String] = Map("recaptcha.url" -> "http:/cc.cd", "recaptcha.secret" -> "")
+    val config: Map[String, String] = Map("recaptcha.verify.url" -> "http:/cc.cd", "recaptcha.secret" -> "")
     val service =  new CaptchaServiceSpecConfig(ConfigFactory.parseMap(config)).captchaService
 
     "should accept any captcha" in {
@@ -28,7 +28,7 @@ class CaptchaServiceSpec extends Specification {
   }
 
   "CaptchaService with wrong service and wrong secret" should {
-    val config: Map[String, String] = Map("recaptcha.url" -> "http://x.x", "recaptcha.secret" -> "xyz")
+    val config: Map[String, String] = Map("recaptcha.verify.url" -> "http://x.x", "recaptcha.secret" -> "xyz")
     val service =  new CaptchaServiceSpecConfig(ConfigFactory.parseMap(config)).captchaService
     val expectedError = new IllegalStateException("Captcha check request failed with responsecode 500 and response java.net.UnknownHostException: x.x")
 
@@ -39,7 +39,7 @@ class CaptchaServiceSpec extends Specification {
   }
 
   "CaptchaService with real service but wrong secret" should {
-    val config: Map[String, String] = Map("recaptcha.url" -> "https://www.google.com/recaptcha/api/siteverify", "recaptcha.secret" -> "xyz")
+    val config: Map[String, String] = Map("recaptcha.verify.url" -> "https://www.google.com/recaptcha/api/siteverify", "recaptcha.secret" -> "xyz")
     val service =  new CaptchaServiceSpecConfig(ConfigFactory.parseMap(config)).captchaService
 
     "should fail with any captcha" in {
