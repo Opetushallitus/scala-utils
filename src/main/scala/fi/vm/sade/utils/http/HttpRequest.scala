@@ -1,5 +1,7 @@
 package fi.vm.sade.utils.http
 
+import java.net.URL
+
 import fi.vm.sade.utils.slf4j.Logging
 
 import scala.collection.immutable.HashMap
@@ -11,6 +13,7 @@ trait HttpRequest{
   def response(): Option[String]
   def param(key: String, value: String): HttpRequest
   def header(key: String, value: String): HttpRequest
+  def getUrl: URL
 }
 
 class DefaultHttpRequest(private val request: Request) extends HttpRequest with Logging {
@@ -55,4 +58,6 @@ class DefaultHttpRequest(private val request: Request) extends HttpRequest with 
   private def logUnexpectedError(t: Throwable) {
     logger.error("Unexpected error from " + request.method + " to " + request.url + " : " + t, t)
   }
+
+  def getUrl() = request.getUrl
 }
