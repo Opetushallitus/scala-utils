@@ -19,7 +19,7 @@ object DefaultHttpClient extends HttpClient {
   }
 
   def httpGet(url: String, options: HttpOptions.HttpOption*) : HttpRequest = {
-    new DefaultHttpRequest(changeOptions(Http.get(url), options: _*))
+    new DefaultHttpRequest(Http(url).method("GET").options(options))
   }
 
   def httpPost(url: String, data: Option[String]) : HttpRequest = {
@@ -27,10 +27,11 @@ object DefaultHttpClient extends HttpClient {
   }
 
   def httpPost(url: String, data: Option[String], options: HttpOptions.HttpOption*) : HttpRequest = {
-    new DefaultHttpRequest(changeOptions(data match {
-      case None => Http.post(url)
-      case Some(data) => Http.postData(url, data)
-    }, options: _*))
+    val postRequest = Http(url).method("POST").options(options)
+    data match {
+      case None => new DefaultHttpRequest(postRequest)
+      case Some(data) => new DefaultHttpRequest(postRequest.postData(data))
+    }
   }
 
   def httpPut(url: String) : HttpRequest = {
@@ -38,10 +39,7 @@ object DefaultHttpClient extends HttpClient {
   }
 
   def httpPut(url: String, options: HttpOptions.HttpOption*) : HttpRequest = {
-    new DefaultHttpRequest(changeOptions(Http(url).method("put"), options: _*))
+    new DefaultHttpRequest(Http(url).method("PUT").options(options))
   }
 
-  private def changeOptions(request: Http.Request, options: HttpOptions.HttpOption*): Http.Request = {
-    request.options(options: _*)
-  }
 }

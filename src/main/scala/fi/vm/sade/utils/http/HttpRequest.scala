@@ -1,22 +1,18 @@
 package fi.vm.sade.utils.http
 
-import java.net.URL
-
 import fi.vm.sade.utils.slf4j.Logging
 
 import scala.collection.immutable.HashMap
-import scalaj.http.Http.Request
-import scalaj.http.{Http, HttpException}
 
 trait HttpRequest{
-  def responseWithHeaders(): (Int, Map[String, List[String]], String)
+  def responseWithHeaders(): (Int, Map[String, String], String)
   def response(): Option[String]
   def param(key: String, value: String): HttpRequest
   def header(key: String, value: String): HttpRequest
-  def getUrl: URL
+  def getUrl: String
 }
 
-class DefaultHttpRequest(private val request: Request) extends HttpRequest with Logging {
+class DefaultHttpRequest(private val request: scalaj.http.HttpRequest) extends HttpRequest with Logging {
   def param(key: String, value: String) = {
     new DefaultHttpRequest(request.param(key, value))
   }
@@ -25,14 +21,11 @@ class DefaultHttpRequest(private val request: Request) extends HttpRequest with 
     new DefaultHttpRequest(request.header(key, value))
   }
 
-  def responseWithHeaders(): (Int, Map[String, List[String]], String) = {
+  def responseWithHeaders(): (Int, Map[String, String], String) = {
     try {
-      request.asHeadersAndParse(Http.readString)
+      val response = request.asString
+      (response.code, response.headers, response.body)
     } catch {
-      case e: HttpException => {
-        if(e.code != 404) logUnexpectedError(e)
-        (e.code, HashMap(), e.body)
-      }
       case t: Throwable => {
         logUnexpectedError(t)
         (500, HashMap(), t.toString)
@@ -42,12 +35,15 @@ class DefaultHttpRequest(private val request: Request) extends HttpRequest with 
 
   def response(): Option[String] = {
     try {
-      Some(request.asString)
-    } catch {
-      case e: HttpException => {
-        if(e.code != 404) logUnexpectedError(e)
+      val response = request.asString
+      if(response.isError || response.isRedirect) {
+        logger.warn("Unexpected status code ${response.code} from {request.method} to ${request.url}" )
         None
       }
+      else {
+        Some(response.body)
+      }
+    } catch {
       case t: Throwable => {
         logUnexpectedError(t)
         None
@@ -59,5 +55,5 @@ class DefaultHttpRequest(private val request: Request) extends HttpRequest with 
     logger.error("Unexpected error from " + request.method + " to " + request.url + " : " + t, t)
   }
 
-  def getUrl() = request.getUrl
+  def getUrl() = request.url
 }

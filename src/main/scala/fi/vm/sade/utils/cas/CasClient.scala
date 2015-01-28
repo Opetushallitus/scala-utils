@@ -50,7 +50,7 @@ class CasClient(config: CasConfig) extends TicketClient with Logging {
       responseStatus match {
         case 201 => {
           val ticketPattern = """.*/([^/]+)""".r
-          val headerValue = headersMap.getOrElse("Location",List("no location header")).head
+          val headerValue = headersMap.getOrElse("Location", "no location header")
           ticketPattern.findFirstMatchIn(headerValue) match {
             case Some(matched) => Some(matched.group(1))
             case None => {
