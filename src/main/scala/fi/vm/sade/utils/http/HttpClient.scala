@@ -29,7 +29,7 @@ object DefaultHttpClient extends HttpClient {
   def httpPost(url: String, data: Option[String], options: HttpOptions.HttpOption*) : HttpRequest = {
     val postRequest = Http(url).method("POST").options(options)
     data match {
-      case None => new DefaultHttpRequest(postRequest)
+      case None => new DefaultHttpRequest(postRequest.postForm)
       case Some(data) => new DefaultHttpRequest(postRequest.postData(data))
     }
   }
