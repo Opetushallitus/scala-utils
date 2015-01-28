@@ -34,7 +34,7 @@ class CaptchaServiceSpec extends Specification {
 
     "should throw an exception with any captcha" in {
       service.checkCaptcha("") must throwA(expectedError)
-        service.checkCaptcha("xyz") must throwA(expectedError)
+      service.checkCaptcha("xyz") must throwA(expectedError)
     }
   }
 
