@@ -63,4 +63,5 @@ case class Environment(val name: String) {
   def isReppu = name == "oph"
   def isProduction = name == "ophprod"
   def isQA = name == "ophp"
+  def isKoulutus = name == "ophtrain"
 }
