@@ -30,6 +30,8 @@ object ScalaUtilsBuild extends Build {
       resolvers += "oph-sade-artifactory-releases" at artifactory + "/oph-sade-release-local",
       resolvers += "oph-sade-artifactory-snapshots" at artifactory + "/oph-sade-snapshot-local",
       parallelExecution in Test := false,
+      testOptions in Test := Seq(Tests.Filter(s => s.endsWith("Test") || s.endsWith("Spec"))),
+      testOptions in Test += Tests.Argument(TestFrameworks.Specs2, "junitxml", "console"),
       libraryDependencies ++= Seq(
         "org.slf4j" % "slf4j-api" % "1.7.7",
         "org.slf4j" % "slf4j-log4j12" %"1.7.6",
