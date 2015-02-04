@@ -30,6 +30,7 @@ object ScalaUtilsBuild extends Build {
       resolvers += "oph-sade-artifactory-releases" at artifactory + "/oph-sade-release-local",
       resolvers += "oph-sade-artifactory-snapshots" at artifactory + "/oph-sade-snapshot-local",
       parallelExecution in Test := false,
+      testFrameworks := Seq(TestFrameworks.Specs2),
       testOptions in Test := Seq(Tests.Filter(s => s.endsWith("Test") || s.endsWith("Spec"))),
       testOptions in Test += Tests.Argument(TestFrameworks.Specs2, "junitxml", "console"),
       libraryDependencies ++= Seq(
@@ -52,7 +53,9 @@ object ScalaUtilsBuild extends Build {
           Some("releases" at artifactory + "/oph-sade-release-local")
       }
     )
-  ).settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
+  )
+  .disablePlugins(plugins.JUnitXmlReportPlugin)
+  .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings: _*)
   lazy val projectRef: ProjectReference = project
 
 }
