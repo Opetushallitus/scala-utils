@@ -1,7 +1,10 @@
 package fi.vm.sade.utils.template
 
+import org.junit.runner.RunWith
 import org.specs2.mutable.Specification
+import org.specs2.runner.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class TemplateProcessorSpec extends Specification {
   "TemplateProcessor" should {
     "process YAML attribute file" in {

@@ -1,13 +1,16 @@
 package fi.vm.sade.utils.captcha
 
 import com.typesafe.config.{ConfigException, ConfigFactory, Config}
+import org.junit.runner.RunWith
 import org.specs2.mutable.Specification
+import org.specs2.runner.JUnitRunner
 import scala.collection.JavaConversions._
 
 class CaptchaServiceSpecConfig(config: Config) extends CaptchaServiceComponent {
   val captchaService = new RemoteCaptchaService(new CaptchaServiceSettings(config))
 }
 
+@RunWith(classOf[JUnitRunner])
 class CaptchaServiceSpec extends Specification {
 
   "CaptchaService without properties set" should {
