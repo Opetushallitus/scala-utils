@@ -99,7 +99,7 @@ class CasClient(config: CasConfig, httpClient: HttpClient = DefaultHttpClient) e
           .responseWithHeaders()
         (responseCode, headersMap.get("Set-Cookie")) match {
           case (401, _) => retry(retryCount, Some(responseCode), headersMap)
-          case (200, Some(cookies)) if cookies.contains("JSESSIONID") => cookies.split(", ").map(_.split(';').head).toList
+          case (_, Some(cookies)) if cookies.contains("JSESSIONID") => cookies.split(", ").map(_.split(';').head).toList
           case (_, _) => retry(retryCount, Some(responseCode), headersMap)
         }
       case None => retry(retryCount, None, Map())
