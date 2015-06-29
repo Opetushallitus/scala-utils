@@ -3,6 +3,7 @@ package fi.vm.sade.utils.http
 import fi.vm.sade.utils.slf4j.Logging
 
 import scala.collection.immutable.HashMap
+import scalaj.http.HttpResponse
 
 trait HttpRequest{
   def responseWithHeaders(): (Int, Map[String, String], String)
@@ -23,13 +24,12 @@ class DefaultHttpRequest(private val request: scalaj.http.HttpRequest) extends H
 
   def responseWithHeaders(): (Int, Map[String, String], String) = {
     try {
-      val response = request.asString
+      val response: HttpResponse[String] = request.asString
       (response.code, response.headers, response.body)
     } catch {
-      case t: Throwable => {
+      case t: Throwable =>
         logUnexpectedError(t)
         (500, HashMap(), t.toString)
-      }
     }
   }
 
@@ -44,10 +44,9 @@ class DefaultHttpRequest(private val request: scalaj.http.HttpRequest) extends H
         Some(response.body)
       }
     } catch {
-      case t: Throwable => {
+      case t: Throwable =>
         logUnexpectedError(t)
         None
-      }
     }
   }
 
@@ -55,5 +54,5 @@ class DefaultHttpRequest(private val request: scalaj.http.HttpRequest) extends H
     logger.error("Unexpected error from " + request.method + " to " + request.url + " : " + t, t)
   }
 
-  def getUrl() = request.url
+  def getUrl = request.url
 }
