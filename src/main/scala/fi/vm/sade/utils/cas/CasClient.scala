@@ -8,6 +8,7 @@ import scala.xml.{Elem, XML}
 import scalacache.ScalaCache
 import scalacache.guava.GuavaCache
 import scalacache.memoization._
+import scalaj.http.HttpOptions
 
 /**
  * CAS client. Can validate a service ticket as well as fetch one from the CAS server.
@@ -94,7 +95,7 @@ class CasClient(config: CasConfig, httpClient: HttpClient = DefaultHttpClient) e
 
     getServiceTicket(service) match {
       case Some(ticket) =>
-        val (responseCode, headersMap, _) = httpClient.httpGet(service.service)
+        val (responseCode, headersMap, _) = httpClient.httpGet(service.service, HttpOptions.followRedirects(false))
           .header("CasSecurityTicket", ticket)
           .responseWithHeaders()
         (responseCode, headersMap.get("Set-Cookie")) match {
