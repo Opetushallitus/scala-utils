@@ -142,15 +142,9 @@
 
     <repositories>
         <repository>
-            <id>ophsadeartifactoryreleases</id>
-            <name>oph-sade-artifactory-releases</name>
-            <url>https://artifactory.oph.ware.fi/artifactory/oph-sade-release-local/</url>
-            <layout>default</layout>
-        </repository>
-        <repository>
-            <id>ophsadeartifactorysnapshots</id>
-            <name>oph-sade-artifactory-snapshots</name>
-            <url>https://artifactory.oph.ware.fi/artifactory/oph-sade-snapshot-local/</url>
+            <id>Maven central</id>
+            <name>maven central repository</name>
+            <url>http://repo.maven.apache.org/maven2/</url>
             <layout>default</layout>
         </repository>
     </repositories>
