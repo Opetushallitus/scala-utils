@@ -140,7 +140,7 @@ object JSESSIONDecoder {
    }
 
    def decodeJsession(response: Response) = DecodeResult.success(response).flatMap[JSessionId]{
-     case Successful(resp) =>  jsessionDecoder.decode(resp)
+     case resp if resp.status.isSuccess =>  jsessionDecoder.decode(resp)
      case resp =>
        DecodeResult.failure(EntityDecoder.text.decode(resp).fold(
          (_)  => ParseFailure("Decoding JSESSIONID failed", s"service returned non-ok status code ${resp.status.code}"),
