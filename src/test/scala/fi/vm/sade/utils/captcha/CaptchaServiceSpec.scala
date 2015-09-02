@@ -1,10 +1,11 @@
 package fi.vm.sade.utils.captcha
 
 import com.typesafe.config.{ConfigException, ConfigFactory, Config}
+import scala.collection.JavaConversions._
 import org.junit.runner.RunWith
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
-import scala.collection.JavaConversions._
+
 
 class CaptchaServiceSpecConfig(config: Config) extends CaptchaServiceComponent {
   val captchaService = new RemoteCaptchaService(new CaptchaServiceSettings(config))

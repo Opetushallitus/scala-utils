@@ -1,115 +1,151 @@
 package fi.vm.sade.utils.cas
 
-import fi.vm.sade.utils.http.{HttpClient, DefaultHttpClient}
-import fi.vm.sade.utils.slf4j.Logging
+import org.http4s.Status.Created
+import CasClient._
+import org.http4s.Status.ResponseClass.Successful
+import org.http4s._
+import org.http4s.client._
+import org.http4s.dsl._
+import org.http4s.headers.{Location, `Set-Cookie`}
 
-import scala.concurrent.duration._
-import scala.xml.{Elem, XML}
-import scalacache.ScalaCache
-import scalacache.guava.GuavaCache
-import scalacache.memoization._
-import scalaj.http.HttpOptions
+import scalaz.concurrent.{Future, Task}
+import scalaz.stream.{Channel, async, channel}
 
-/**
- * CAS client. Can validate a service ticket as well as fetch one from the CAS server.
- *
- * @param config  CAS server configuration
- */
-class CasClient(config: CasConfig, httpClient: HttpClient = DefaultHttpClient) extends TicketClient with Logging {
-  implicit val scalaCache = ScalaCache(GuavaCache())
+object CasClient {
+   type JSessionId = String
+   type TGTUrl = Uri
+   type ST = String
 
-  def validateServiceTicket(ticket: CasTicket): CasResponse = {
-    def failure(error: String) = CasResponseFailure(error)
-    def parseCasResponse(response: String) = {
-      val responseXml: Elem = XML.loadString(response)
-      (responseXml \\ "authenticationSuccess").theSeq match {
-        case ((n: Elem) :: _) =>
-          CasResponseSuccess((n \\ "user").text)
-        case _ =>
-          (responseXml \\ "authenticationFailure").theSeq match {
-            case ((n: Elem) :: _) =>
-              CasResponseFailure(n.attributes("code").map(_.text).headOption.getOrElse("CAS authentication failure"))
-            case _ =>
-              CasResponseFailure("Unexpected CAS error")
-          }
-      }
-    }
+ }
 
-    val casUrl: String = config.casRoot + "/serviceValidate"
-    val (responseStatus, _, resultString) = httpClient.httpGet(casUrl).param("service", ticket.service).param("ticket", ticket.ticket)
-      .responseWithHeaders()
+class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) {
+   def this(casServer: String, client: Client) = this(new Task(
+     Future.now(
+       Uri.fromString(casServer).
+         leftMap((fail: ParseFailure) => new IllegalArgumentException(fail.sanitized))
+     )).run, client)
 
-    responseStatus match {
-      case 200 => parseCasResponse(resultString)
-      case _ => failure("CAS server at " + casUrl + " responded with status "+ responseStatus)
-    }
-  }
 
-  def getServiceTicket(service: CasTicketRequest): Option[String] = {
-    val casTicketUrl = config.casRoot + "/v1/tickets"
+   implicit val casUserEncoder = UrlForm.entityEncoder().contramap((user: CasUser) => UrlForm("username" -> user.username, "password" -> user.password))
 
-    def getTicketGrantingTicket(username: String, password: String): Option[String] = {
-      val (responseStatus, headersMap, resultString) = httpClient.httpPost(casTicketUrl, None)
-        .param("username", username)
-        .param("password", password)
-        .responseWithHeaders()
 
-      responseStatus match {
-        case 201 =>
-          val ticketPattern = """.*/([^/]+)""".r
-          val headerValue = headersMap.getOrElse("Location", "no location header")
-          ticketPattern.findFirstMatchIn(headerValue) match {
-            case Some(matched) => Some(matched.group(1))
-            case None =>
-              logger.warn("Successful ticket granting request, but no ticket found! Location header: " + headerValue)
-              None
-          }
-        case _ =>
-          logger.error("Invalid response status (" + responseStatus + ") from CAS server. Response body: " + resultString)
-          None
-      }
-    }
 
-    getTicketGrantingTicket(service.username, service.password).flatMap { ticket =>
-      httpClient.httpPost(casTicketUrl + "/" + ticket, None)
-        .param("service", service.service)
-        .responseWithHeaders() match {
-        case (status, _, ticketInResponse) if status >= 200 && status < 300 =>
-          Some(ticketInResponse)
-        case (status, _, body) =>
-          logger.warn("Service ticket creation failed with response status " + status + ". Body: " + body)
-          None
-      }
-    }
-  }
 
-  private def getCookies(service: CasTicketRequest, retryCount: Int = 0): List[String] = {
-    def retry(count: Int, responseCode: Option[Int], headers: Map[String, String]): List[String] = {
-      if (count < 3) {
-        logger.warn(s"retrying getCookies, retry attempt #${count + 1}...")
-        getCookies(service, count + 1)
-      } else {
-        throw CannotAuthenticateException(responseCode, headers)
-      }
-    }
 
-    getServiceTicket(service) match {
-      case Some(ticket) =>
-        val (responseCode, headersMap, _) = httpClient.httpGet(service.service, HttpOptions.followRedirects(false))
-          .header("CasSecurityTicket", ticket)
-          .responseWithHeaders()
-        (responseCode, headersMap.get("Set-Cookie")) match {
-          case (401, _) => retry(retryCount, Some(responseCode), headersMap)
-          case (_, Some(cookies)) if cookies.contains("JSESSIONID") => cookies.split(", ").map(_.split(';').head).toList
-          case (_, _) => retry(retryCount, Some(responseCode), headersMap)
-        }
-      case None => retry(retryCount, None, Map())
-    }
-  }
+   private def tgtReq(params: CasParams) = POST(
+     resolve(
+       virkailijaLoadBalancerUrl,
+       uri("/cas/v1/tickets")),
+     params.user)
 
-  def getSessionCookies(service: CasTicketRequest, createNewSession: Boolean = false, timeToLive: Duration = 15.minutes): List[String] =
-    if (createNewSession)
-      getCookies(service)
-    else
-      memoize(timeToLive) { getCookies(service) }
-}
+
+   import TGTDecoder.decodeTgt
+
+   protected[cas] def getTgt(params: CasParams): Task[TGTUrl] =
+     client.prepare(tgtReq(params)).flatMap(decodeTgt)
+
+
+
+   val stPattern = "(ST-.*)".r
+
+   val stDecoder = EntityDecoder.text.flatMapR[ST]{
+     case stPattern(st) => DecodeResult.success(st)
+     case nonSt => DecodeResult.failure(ParseFailure("Service Ticket decoding failed", s"response body is of wrong form ($nonSt)"))
+
+   }
+
+
+   def stReq(tgtUrl: TGTUrl, service:Uri) = POST(
+     tgtUrl,
+     UrlForm("service" -> service.toString())
+   )
+
+   protected[cas] def getServiceTicket(service:Uri)(tgtUrl: TGTUrl) = client.prepAs[ST](stReq(tgtUrl, service))(stDecoder)
+
+   def jSessionReq(serviceTicket:ST, service: Uri) = GET(service.withQueryParam("ticket", serviceTicket))
+
+   protected[cas] def getJSessionId(service:Uri)(serviceTicket:ST): Task[JSessionId] =
+     client.prepare(jSessionReq(serviceTicket, service)).flatMap(JSESSIONDecoder.decodeJsession)
+
+   def serviceUrl(params:CasParams) = resolve(virkailijaLoadBalancerUrl, params.service.securityUri)
+
+   protected[cas] def fetchCasSession(params: CasParams) =
+     (for (
+       tgt <- getTgt(params);
+       st <- getServiceTicket(serviceUrl(params))(tgt);
+       session <- getJSessionId(serviceUrl(params))(st)
+     ) yield session).handle{
+       case e@ParseException(pf) =>
+         println(pf.details)
+         throw e
+
+     }
+
+
+   private def refreshSession(params: CasParams): Task[JSessionId] = fetchCasSession(params).flatMap((session) => s.compareAndSet {
+     case None => Some(Map(params -> session))
+     case Some(map) => Some(map.updated(params, session))
+   }).map(_.get(params))
+
+   private val s = async.signalOf(Map[CasParams, JSessionId]())
+
+   private def getSession(params: CasParams): Task[Option[JSessionId]] = s.get.map(_.get(params))
+
+   private def fetchSessionFromStore(params: CasParams): Task[JSessionId] = getSession(params).flatMap {
+     case Some(session) => Task.now(session)
+     case None => refreshSession(params)
+   }
+
+   def sessionRefreshChannel: Channel[Task, CasParams, JSessionId] = channel.lift[Task, CasParams, JSessionId] {
+     (casParams) => refreshSession(casParams)
+   }
+
+   def casSessionChannel: Channel[Task, CasParams, JSessionId] = channel.lift(fetchSessionFromStore)
+ }
+
+object TGTDecoder {
+
+   import CasClient.TGTUrl
+
+   val tgtDecoder = EntityDecoder.decodeBy[TGTUrl](MediaRange.`*/*`){
+     (msg) =>
+       val tgtPattern = "(.*TGT-.*)".r
+
+       msg.headers.get(Location).map(_.value) match {
+         case Some(tgtPattern(tgtUrl)) =>
+           Uri.fromString(tgtUrl).fold((pf) => DecodeResult.failure(pf), (tgt) => DecodeResult.success(tgt))
+         case Some(nontgturl) => DecodeResult.failure(ParseFailure("TGT decoding failed", s"location header has wrong format $nontgturl"))
+         case None => DecodeResult.failure(ParseFailure("TGT decoding failed", "No location header"))
+
+       }
+
+   }
+
+   val decodeTgt: (Response) => Task[TGTUrl] = response => DecodeResult.success(response).flatMap[TGTUrl]{
+     case Created(resp) => tgtDecoder.decode(resp)
+     case resp => DecodeResult.failure(ParseFailure("TGT decoding failed", s"invalid TGT creation status: ${resp.status.code}"))
+   }.fold(e => throw new ParseException(e), identity)
+
+
+ }
+
+object JSESSIONDecoder {
+
+   val jsessionDecoder = EntityDecoder.decodeBy[JSessionId](MediaRange.`*/*`){
+     (msg) =>
+       msg.headers.collectFirst {
+         case `Set-Cookie`(`Set-Cookie`(cookie)) if cookie.name == "JSESSIONID" => DecodeResult.success(cookie.content)
+       }.getOrElse(DecodeResult.failure(ParseFailure("Decoding JSESSIONID failed", "no cookie found for JSESSIONID")))
+
+   }
+
+   def decodeJsession(response: Response) = DecodeResult.success(response).flatMap[JSessionId]{
+     case Successful(resp) =>  jsessionDecoder.decode(resp)
+     case resp =>
+       DecodeResult.failure(EntityDecoder.text.decode(resp).fold(
+         (_)  => ParseFailure("Decoding JSESSIONID failed", s"service returned non-ok status code ${resp.status.code}"),
+         (body) => ParseFailure("Decoding JSESSIONID failed",s"service returned non-ok status code ${resp.status.code}: $body")
+
+       ))
+   }.fold(e => throw ParseException(e), identity)
+ }

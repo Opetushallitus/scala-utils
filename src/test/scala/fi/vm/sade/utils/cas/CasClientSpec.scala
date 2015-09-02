@@ -1,130 +1,252 @@
 package fi.vm.sade.utils.cas
 
-import java.util.concurrent.TimeUnit
-
-import fi.vm.sade.utils.http.{HttpClient, HttpRequest}
+import org.http4s.client.Client
+import CasClient._
+import org.http4s.dsl._
+import org.http4s.headers.{Location, `Set-Cookie`}
+import org.http4s.{Request, Response, _}
 import org.junit.runner.RunWith
-import org.specs2.mutable.Specification
-import org.specs2.runner.JUnitRunner
+import org.scalatest.junit.JUnitRunner
+import org.scalatest.{Matchers, FlatSpec}
 
-import scala.concurrent.duration.Duration
-import scalaj.http.HttpOptions.HttpOption
+import scalaz.concurrent.Task
+import scalaz.stream._
+import scalaz.stream.async.mutable.Signal
 
 @RunWith(classOf[JUnitRunner])
-class CasClientSpec extends Specification {
-  def createMock() = new Mocks(
-    Map(
-      ("POST", "http://localhost/cas/v1/tickets") ->
-        MockResponse(201, Map("Location" -> "http://localhost/cas/v1/tickets/TGT-63528-7e6K4Ft6YCbiiLFdjk7Y-cas.foo"), ""),
+class CasClientSpec extends FlatSpec with Matchers {
+  val virkailijaUri: Uri = uri("https://localhost")
+  
+  behavior of "CasClient"
 
-      ("POST", "http://localhost/cas/v1/tickets/TGT-63528-7e6K4Ft6YCbiiLFdjk7Y-cas.foo") ->
-        MockResponse(200, Map(), "", Some("ST-63529-TQpkXpIE0YgGXFIwTHaj-cas.foo")),
 
-      ("GET", "http://localhost/authentication-service/j_spring_cas_security_check") ->
-        MockResponse(200, Map("Set-Cookie" -> "JSESSIONID=9C16A50F8E5DE52D03F237CB3500D3A8; Path=/authentication-service/; HttpOnly, route_authentication=c23b64de9030d9a60763b124abce01e4db5e5ae0; Path=/authentication-service/"), ""),
+  it should "get a TGT ticket" in {
+    val casParams = CasParams("/secured-service", "foo", "bar")
+    val casMock = new CasServer {
+      val params: CasParams = casParams
+      override val tgt: Process[Task, String] = Process("1").repeat
+    }
+    val casClient = new CasClient(virkailijaUri, casMock)
+    casClient.getTgt(casParams).run should be (casMock.tgtUri("TGT-1"))
+  }
 
-      ("GET", "http://localhost/authentication-service/resources/s2s/byHetu/111111-1975") ->
-        MockResponse(200, Map("Content-Type" -> "application/json"), "{\"oidHenkilo\":\"oid\",\"kutsumanimi\":\"full\",\"sukunimi\":\"name\"}")
-    )
+  it should "get service ticket for TGT" in {
+    val casParams = CasParams("/secured-service", "foo", "bar")
+
+    val casMock = new CasServer {
+      val params: CasParams = casParams
+    }
+
+    val casClient = new CasClient(virkailijaUri, casMock)
+
+    val serviceUri = resolve(virkailijaUri, casParams.service.securityUri)
+
+    casClient.getServiceTicket(serviceUri)(casMock.tgtUri("TGT-1")).run should be ("ST-1")
+
+  }
+
+  it should "get JSESSIONID for Service Ticket" in {
+    val casParams = CasParams("/secured-service", "foo", "bar")
+
+    val casMock = new CasServer {
+      val params: CasParams = casParams
+    }
+
+    val casClient = new CasClient(virkailijaUri, casMock)
+
+    val serviceUri = resolve(virkailijaUri, casParams.service.securityUri)
+
+
+    val securityUri = resolve(serviceUri, uri("j_spring_cas_security_check"))
+
+    casClient.getJSessionId(serviceUri)("ST-1").run should be ("foobar-1")
+
+  }
+
+
+  it should "give a session id for requested service" in {
+    val casParams = CasParams("/sijoittelu-service", "foo", "bar")
+    val casMock = new CasMock(params = casParams)
+    val casClient = new CasClient(virkailijaUri, casMock)
+
+    val params: Process[Task, CasParams] = Process.emit(casParams)
+
+    val session: Process[Task, JSessionId] = params through casClient.casSessionChannel
+
+    session.run.run
+
+    casMock.steps should be (List(
+      "created TGT-123",
+      "created ST-123",
+      "created session foobar-123"
+    ))
+  }
+
+  it should "give the same session for the same service on subsequential requests" in {
+    val casParams = CasParams("/sijoittelu-service", "foo", "bar")
+    val casMock = new CasMock(params = casParams)
+    val casClient = new CasClient(virkailijaUri, casMock)
+
+    val params: Process[Task, CasParams] = Process.emitAll(Seq(casParams, casParams))
+
+    val session: Process[Task, JSessionId] = params through casClient.casSessionChannel
+
+    session.run.run
+
+    casMock.steps should be (List(
+      "created TGT-123",
+      "created ST-123",
+      "created session foobar-123"
+    ))
+  }
+
+  it should "give a new session when refresh is requested" in {
+    val casParams = CasParams("/sijoittelu-service", "foo", "bar")
+    val casMock = new CasMock(params = casParams)
+    val casClient = new CasClient(virkailijaUri, casMock)
+
+    val params: Process[Task, CasParams] = Process.emit(casParams)
+
+    val session: Process[Task, JSessionId] = params through casClient.casSessionChannel
+
+    session.run.run
+
+    //casMock.ticket = "124"
+
+    val refreshedSession: Process[Task, JSessionId] = params through casClient.sessionRefreshChannel
+
+    refreshedSession.run.run
+
+    casMock.steps should be (List(
+      "created TGT-123",
+      "created ST-123",
+      "created session foobar-123",
+      "created TGT-124",
+      "created ST-124",
+      "created session foobar-124"
+    ))
+  }
+
+}
+
+trait CasServer extends Client {
+
+  val params: CasParams
+  val virkailijaUrl: Uri = uri("https://localhost")
+  val initialTgt = 123
+  val tgt: Process[Task, String] = Process.supply(initialTgt).map(_.toString)
+  val st: Channel[Task, String, String] = channel.lift[Task, String, String]((tgtId: String) => Task.now(tgtId))
+  val session: Channel[Task, String, String] = channel.lift[Task, String, String]((stId: String) => Task.now(stId))
+
+
+  override def shutdown(): Task[Unit] = Task.now[Unit] {}
+
+  def preTgt: Sink[Task, String] = sink.lift[Task, String]((_) => Task.now[Unit] {})
+
+  def preSt: Sink[Task, String] = sink.lift[Task, String]((_) => Task.now[Unit] {})
+
+  def preSes:  Sink[Task, String] = sink.lift[Task, String]((_) => Task.now[Unit] {})
+
+
+  def failure(message: String) = Task.now[Unit] {}
+
+  def tgtUri(ticket:String) = resolve(virkailijaUrl, Uri(path = s"/cas/v1/tickets/$ticket"))
+
+  def tgtResponse: Channel[Task, String, Response] = channel.lift[Task, String, Response]((ticket) =>
+    Created().withHeaders(Location(tgtUri(ticket)))
   )
 
-  "CasClient" should {
-    val casConfig = CasConfig("http://localhost/cas")
+  def stResponse: Channel[Task, String, Response] = channel.lift[Task, String, Response]((ticket) =>
+    Ok(ticket)
+  )
 
-    "get session cookies for requested service" in {
-      new CasClient(casConfig, createMock()).getSessionCookies(CasTicketRequest(
-        service = "http://localhost/authentication-service/j_spring_cas_security_check",
-        username = "foo",
-        password = "bar"
-      )) must_== List("JSESSIONID=9C16A50F8E5DE52D03F237CB3500D3A8", "route_authentication=c23b64de9030d9a60763b124abce01e4db5e5ae0")
+  def sesResponse: Channel[Task, String, Response] = channel.lift[Task, String, Response]((session) =>
+    Ok().withHeaders(`Set-Cookie`(Cookie(name = "JSESSIONID", content = session)))
+  )
+
+  val tgtPattern = "TGT-(.*)".r
+
+  val stGenerator = process1.lift((stId: String) => s"ST-$stId")
+
+  object ST extends QueryParamDecoderMatcher[String]("ticket")
+
+  val stPattern = "ST-(.*)".r
+
+  val sesGen = process1.lift((stId: String) => s"foobar-$stId")
+
+
+  override def prepare(req: Request): Task[Response] = req match {
+    case req@ POST -> Root / "cas" / "v1" / "tickets" => req.decode[String] {
+      case body if body == s"username=${params.user.username}&password=${params.user.password}" =>
+        (tgt.take(1).map((id) => s"TGT-$id") observe preTgt through tgtResponse).runLast.flatMap{
+          case Some(r) => Task.now(r)
+          case None => InternalServerError("TGT creation failed")
+        }
+
+
+      case _ =>
+        failure("invalid login").flatMap((_) =>
+          Unauthorized(Challenge("", ""))
+        )
+
     }
 
-    "cache session cookies for multiple requests" in {
-      val mock = createMock()
-      val casClient = new CasClient(casConfig, mock)
-      val ticketRequest = CasTicketRequest(
-        service = "http://localhost/authentication-service/j_spring_cas_security_check",
-        username = "foo",
-        password = "bar"
-      )
+    case req@ POST -> Root / "cas" / "v1" / "tickets" / tgt  => req.decode[UrlForm] {
+      case body if body.get("service") == Seq(resolve(virkailijaUrl, params.service.securityUri).toString()) =>
+        (Process(tgt).toSource.collect{
+          case tgtPattern(ticket) => ticket
+        } through st pipe stGenerator observe preSt through stResponse).runLast.flatMap{
+          case Some(r) => Task.now(r)
+          case None => InternalServerError("ST creation failed")
+        }
 
-      casClient.getSessionCookies(ticketRequest)
+      case body =>
+        println(body.get("service"))
+        println(resolve(virkailijaUrl, params.service.securityUri).toString())
+        failure("invalid serviceUrl").flatMap((_) =>
+          BadRequest()
+        )
 
-      casClient.getSessionCookies(ticketRequest)
-
-      mock.requests("http://localhost/cas/v1/tickets") must_== 1
-      mock.requests("http://localhost/cas/v1/tickets/TGT-63528-7e6K4Ft6YCbiiLFdjk7Y-cas.foo") must_== 1
     }
 
-    "get new session when the old one is timed out" in {
-      val mock = createMock()
-      val casClient = new CasClient(casConfig, mock)
-      val ticketRequest = CasTicketRequest(
-        service = "http://localhost/authentication-service/j_spring_cas_security_check",
-        username = "foo",
-        password = "bar"
-      )
+    case req@ GET -> Root / service / "j_spring_cas_security_check" :? ST(ticket) if params.service.securityUri.toString().indexOf(service) > -1 => ticket  match {
+      case stPattern(stId) =>
 
-      casClient.getSessionCookies(ticketRequest, timeToLive = Duration(100, TimeUnit.MILLISECONDS))
+        (Process(stId).toSource through session pipe sesGen observe preSes through sesResponse).runLast.flatMap{
+          case Some(r) => Task.now(r)
+          case None => InternalServerError("JSESSIONID creation failed")
+        }
+      case _ =>
+        failure("invalid service ticket").flatMap((_) =>
+          Unauthorized(Challenge("", ""))
+        )
 
-      Thread.sleep(200)
-
-      casClient.getSessionCookies(ticketRequest, timeToLive = Duration(100, TimeUnit.MILLISECONDS))
-
-      mock.requests("http://localhost/cas/v1/tickets") must_== 2
-      mock.requests("http://localhost/cas/v1/tickets/TGT-63528-7e6K4Ft6YCbiiLFdjk7Y-cas.foo") must_== 2
-    }
-
-    "get new session when requested" in {
-      val mock = createMock()
-      val casClient = new CasClient(casConfig, mock)
-      val ticketRequest = CasTicketRequest(
-        service = "http://localhost/authentication-service/j_spring_cas_security_check",
-        username = "foo",
-        password = "bar"
-      )
-
-      casClient.getSessionCookies(ticketRequest)
-
-      casClient.getSessionCookies(ticketRequest, createNewSession = true)
-
-      mock.requests("http://localhost/cas/v1/tickets") must_== 2
-      mock.requests("http://localhost/cas/v1/tickets/TGT-63528-7e6K4Ft6YCbiiLFdjk7Y-cas.foo") must_== 2
     }
   }
 }
 
+class CasMock(override val virkailijaUrl: Uri = uri("https://localhost"),
+              val params: CasParams,
+              sessionGen: (String) => String = identity) extends CasServer {
 
-class Mocks(mockedRequests: Map[(String, String), HttpRequest]) extends HttpClient {
-  var requests: Map[String, Int] = Map()
-  private def incCount(url: String) = synchronized {
-    requests = requests + (url -> (requests.getOrElse(url, 0) + 1))
-  }
-  override def httpGet(url: String): HttpRequest = {
-    incCount(url)
-    mockedRequests(("GET", url))
-  }
-  override def httpGet(url: String, options: HttpOption*): HttpRequest = {
-    incCount(url)
-    mockedRequests(("GET", url))
-  }
-  override def httpPost(url: String, data: Option[String]): HttpRequest = {
-    incCount(url)
-    mockedRequests("POST", url)
-  }
-  override def httpPost(url: String, data: Option[String], options: HttpOption*): HttpRequest = {
-    incCount(url)
-    mockedRequests("POST", url)
-  }
-  override def httpPut(url: String): HttpRequest = ???
-  override def httpPut(url: String, options: HttpOption*): HttpRequest = ???
+
+  override val session = channel.lift[Task, String, String]((stid) => Task.delay(sessionGen(stid)))
+
+  val stepState = async.signalOf(List[String]())
+
+  def steps: List[String] = stepState.get.run
+
+  def setState = stepState.sink.contramap((step:String) => Signal.CompareAndSet[List[String]]{
+    case Some(steps) => Some(steps :+ step)
+    case None => Some(List(step))
+  })
+
+  override def shutdown(): Task[Unit] = stepState.close
+
+  override def preTgt: Sink[Task, String] = setState.contramap((ticket) => s"created $ticket")
+
+  override def preSt: Sink[Task, String] = setState.contramap((ticket) => s"created $ticket")
+
+  override def preSes: Sink[Task, String] = setState.contramap((ticket) => s"created session $ticket")
 }
 
-
-case class MockResponse(responseCode: Int, headers: Map[String, String], body: String, resp: Option[String] = None) extends HttpRequest {
-  override def responseWithHeaders(): (Int, Map[String, String], String) = (responseCode, headers, body)
-  override def header(key: String, value: String): HttpRequest = this
-  override def param(key: String, value: String): HttpRequest = this
-  override def response(): Option[String] = resp
-  override def getUrl: String = ""
-}
