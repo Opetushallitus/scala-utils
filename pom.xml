@@ -5,7 +5,7 @@
     <artifactId>scala-utils_2.11</artifactId>
     <packaging>jar</packaging>
     <description>scala-utils</description>
-    <version>0.1.0</version>
+    <version>0.2.0-SNAPSHOT</version>
     <name>scala-utils</name>
     <organization>
         <name>fi.vm.sade</name>
