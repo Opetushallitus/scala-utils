@@ -160,9 +160,9 @@ trait CasServer extends Client {
     Ok(ticket)
   )
 
-  def sesResponse: Channel[Task, String, Response] = channel.lift[Task, String, Response]((session) =>
-    Ok().withHeaders(`Set-Cookie`(Cookie(name = "JSESSIONID", content = session)))
-  )
+  def sesResponse: Channel[Task, (Uri, String), Response] = channel.lift[Task, (Uri, String), Response] { case (redirect, session) =>
+    Found(redirect).withHeaders(`Set-Cookie`(Cookie(name = "JSESSIONID", content = session)))
+  }
 
   val tgtPattern = "TGT-(.*)".r
 
@@ -211,8 +211,8 @@ trait CasServer extends Client {
 
     case req@ GET -> Root / service / "j_spring_cas_security_check" :? ST(ticket) if params.service.securityUri.toString().indexOf(service) > -1 => ticket  match {
       case stPattern(stId) =>
-
-        (Process(stId).toSource through session pipe sesGen observe preSes through sesResponse).runLast.flatMap{
+        val redirectProcess: Process[Task, Uri] = Process(resolve(virkailijaUrl, Uri(path="/service"))).toSource
+        (redirectProcess zip(Process(stId).toSource through session pipe sesGen observe preSes)  through sesResponse).runLast.flatMap{
           case Some(r) => Task.now(r)
           case None => InternalServerError("JSESSIONID creation failed")
         }
