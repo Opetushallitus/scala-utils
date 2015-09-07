@@ -70,11 +70,6 @@
         </dependency>
         <dependency>
             <groupId>org.http4s</groupId>
-            <artifactId>http4s-core_2.11</artifactId>
-            <version>0.10.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.http4s</groupId>
             <artifactId>http4s-client_2.11</artifactId>
             <version>0.10.0</version>
         </dependency>
