@@ -14,7 +14,7 @@
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
-            <version>2.11.6</version>
+            <version>2.11.7</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -71,17 +71,17 @@
         <dependency>
             <groupId>org.http4s</groupId>
             <artifactId>http4s-core_2.11</artifactId>
-            <version>0.8.4</version>
+            <version>0.10.0</version>
         </dependency>
         <dependency>
             <groupId>org.http4s</groupId>
             <artifactId>http4s-client_2.11</artifactId>
-            <version>0.8.4</version>
+            <version>0.10.0</version>
         </dependency>
         <dependency>
             <groupId>org.http4s</groupId>
             <artifactId>http4s-dsl_2.11</artifactId>
-            <version>0.8.4</version>
+            <version>0.10.0</version>
         </dependency>
         <dependency>
             <groupId>org.specs2</groupId>
