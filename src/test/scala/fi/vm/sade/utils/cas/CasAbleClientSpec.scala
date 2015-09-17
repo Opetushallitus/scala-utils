@@ -31,7 +31,7 @@ class CasAbleClientSpec extends FlatSpec with Matchers {
        }
      }
      val casClient = new CasClient(virkailijaUri, casMock)
-     val client = new CasAbleClient(casClient, casParams, mock)
+     val client = new CasAuthenticatingClient(casClient, casParams, mock)
 
 
      val requestUri = resolve(virkailijaUri, uri("/secured"))
@@ -61,7 +61,7 @@ class CasAbleClientSpec extends FlatSpec with Matchers {
      }
 
      val casClient = new CasClient(virkailijaUri, casMock)
-     val client = new CasAbleClient(casClient, CasParams("/secured-service", "foo", "bar"), mock)
+     val client = new CasAuthenticatingClient(casClient, CasParams("/secured-service", "foo", "bar"), mock)
 
      val requestUri = resolve(virkailijaUri, uri("/secured"))
      client.prepare(requestUri).run.status should be (Status.Ok)
@@ -89,7 +89,7 @@ class CasAbleClientSpec extends FlatSpec with Matchers {
      }
 
      val casClient = new CasClient(virkailijaUri, casMock)
-     val client = new CasAbleClient(casClient, CasParams("/secured-service", "foo", "bar"), mock)
+     val client = new CasAuthenticatingClient(casClient, CasParams("/secured-service", "foo", "bar"), mock)
 
      val requestUri = resolve(virkailijaUri, uri("/secured"))
 

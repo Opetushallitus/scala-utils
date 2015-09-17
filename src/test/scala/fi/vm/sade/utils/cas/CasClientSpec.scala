@@ -27,7 +27,7 @@ class CasClientSpec extends FlatSpec with Matchers {
       override val tgt: Process[Task, String] = Process("1").repeat
     }
     val casClient = new CasClient(virkailijaUri, casMock)
-    casClient.getTgt(casParams).run should be (casMock.tgtUri("TGT-1"))
+    casClient.getTicketGrantingTicket(casParams).run should be (casMock.tgtUri("TGT-1"))
   }
 
   it should "get service ticket for TGT" in {
