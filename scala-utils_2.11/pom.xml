@@ -11,7 +11,7 @@
     <artifactId>scala-utils_2.11</artifactId>
     <packaging>jar</packaging>
     <description>scala-utils</description>
-    <name>scala-utils</name>
+    <name>scala-utils_2.11</name>
     <organization>
         <name>fi.vm.sade</name>
     </organization>
