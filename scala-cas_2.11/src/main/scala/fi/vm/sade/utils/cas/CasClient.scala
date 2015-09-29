@@ -1,15 +1,19 @@
 package fi.vm.sade.utils.cas
 
+import fi.vm.sade.utils.cas._
 import org.http4s.Status.Created
 import org.http4s._
 import org.http4s.client._
 import org.http4s.dsl._
 import org.http4s.headers.{Location, `Set-Cookie`}
+import scala.xml.{XML, Elem}
 import scalaz.concurrent.{Future, Task}
 import scalaz.stream.{Channel, async, channel}
+import scala.xml.{Elem, XML}
 
 object CasClient {
   type JSessionId = String
+  type Username = String
   type TGTUrl = Uri
   type ST = String
 }
@@ -35,6 +39,15 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) {
       .flatMap(TicketGrantingTicketDecoder.decodeTgt)
   }
 
+  def validateServiceTicket(service: String)(serviceTicket: ST): Task[Username] = {
+    val pUri: Uri = resolve(virkailijaLoadBalancerUrl, uri("/cas/serviceValidate"))
+      .withQueryParam("ticket", serviceTicket)
+      .withQueryParam("service",service)
+
+    client
+      .prepare(GET(pUri))
+      .flatMap(ServiceTicketResponseXmlDecoder.decodeUsername)
+  }
 
   protected[cas] def getServiceTicket(service: Uri)(tgtUrl: TGTUrl) = {
     client
@@ -117,5 +130,22 @@ object JSESSIONDecoder {
       jsessionDecoder.decode(resp)
     case resp =>
       DecodeResult.failure(EntityDecoder.text.decode(resp).fold((_) => ParseFailure("Decoding JSESSIONID failed", s"service returned non-ok status code ${resp.status.code}"), (body) => ParseFailure("Decoding JSESSIONID failed", s"service returned non-ok status code ${resp.status.code}: $body")))
+  }.fold(e => throw ParseException(e), identity)
+}
+
+object ServiceTicketResponseXmlDecoder {
+  import CasClient._
+
+  val serviceTicketDecoder =
+    EntityDecoder.text.map(s => scala.xml.XML.loadString(s)).flatMapR[Username] {
+      case <serviceResponse><authenticationSuccess><user>{user}</user></authenticationSuccess></serviceResponse> => DecodeResult.success(user.text)
+      case authenticationFailure => DecodeResult.failure(ParseFailure("Service Ticket validation response decoding failed", s"response body is of wrong form ($authenticationFailure)"))
+    }
+
+  def decodeUsername(response: Response) = DecodeResult.success(response).flatMap[Username] {
+    case resp if resp.status.isSuccess =>
+      serviceTicketDecoder.decode(resp)
+    case resp =>
+      DecodeResult.failure(EntityDecoder.text.decode(resp).fold((_) => ParseFailure("Decoding username failed", s"CAS returned non-ok status code ${resp.status.code}"), (body) => ParseFailure("Decoding username failed", s"CAS returned non-ok status code ${resp.status.code}: $body")))
   }.fold(e => throw ParseException(e), identity)
 }
