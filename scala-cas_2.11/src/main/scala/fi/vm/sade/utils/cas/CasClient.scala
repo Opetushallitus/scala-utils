@@ -6,10 +6,9 @@ import org.http4s._
 import org.http4s.client._
 import org.http4s.dsl._
 import org.http4s.headers.{Location, `Set-Cookie`}
-import scala.xml.{XML, Elem}
+import scala.xml._
 import scalaz.concurrent.{Future, Task}
 import scalaz.stream.{Channel, async, channel}
-import scala.xml.{Elem, XML}
 
 object CasClient {
   type JSessionId = String
@@ -137,9 +136,9 @@ object ServiceTicketResponseXmlDecoder {
   import CasClient._
 
   val serviceTicketDecoder =
-    EntityDecoder.text.map(s => scala.xml.XML.loadString(s)).flatMapR[Username] {
-      case <serviceResponse><authenticationSuccess><user>{user}</user></authenticationSuccess></serviceResponse> => DecodeResult.success(user.text)
-      case authenticationFailure => DecodeResult.failure(ParseFailure("Service Ticket validation response decoding failed", s"response body is of wrong form ($authenticationFailure)"))
+    EntityDecoder.text.map(s => Utility.trim(scala.xml.XML.loadString(s))).flatMapR[Username] {
+      case <cas:serviceResponse><cas:authenticationSuccess><cas:user>{user}</cas:user></cas:authenticationSuccess></cas:serviceResponse> => DecodeResult.success(user.text)
+      case authenticationFailure => DecodeResult.failure(ParseFailure(s"Service Ticket validation response decoding failed ($authenticationFailure)", s"response body is of wrong form ($authenticationFailure)"))
     }
 
   def decodeUsername(response: Response) = DecodeResult.success(response).flatMap[Username] {
