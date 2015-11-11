@@ -5,10 +5,9 @@
     <parent>
         <groupId>fi.vm.sade</groupId>
         <artifactId>scala-utils</artifactId>
-        <version>0.2.0-SNAPSHOT</version>
+        <version>0.2.0</version>
         <relativePath>..</relativePath>
     </parent>
-    <version>0.2.0-SNAPSHOT</version>
     <artifactId>scala-cas_2.11</artifactId>
     <packaging>jar</packaging>
     <description>Scala CAS utils</description>
