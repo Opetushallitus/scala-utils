@@ -56,7 +56,6 @@
             <groupId>org.scalatra.scalate</groupId>
             <artifactId>scalate-core_2.11</artifactId>
             <version>1.7.0</version>
-
         </dependency>
         <dependency>
             <groupId>org.scalaj</groupId>
@@ -72,16 +71,6 @@
             <groupId>com.github.cb372</groupId>
             <artifactId>scalacache-guava_2.11</artifactId>
             <version>0.6.3</version>
-        </dependency>
-        <dependency>
-            <groupId>org.http4s</groupId>
-            <artifactId>http4s-client_2.11</artifactId>
-            <version>0.10.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.http4s</groupId>
-            <artifactId>http4s-dsl_2.11</artifactId>
-            <version>0.10.0</version>
         </dependency>
         <dependency>
             <groupId>org.specs2</groupId>
