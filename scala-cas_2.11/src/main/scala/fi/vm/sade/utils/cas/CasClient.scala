@@ -61,15 +61,12 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) {
   protected[cas] def fetchCasSession(params: CasParams) = {
     val serviceUri = resolve(virkailijaLoadBalancerUrl, params.service.securityUri)
 
-    (for (
+    for (
       tgt <- getTicketGrantingTicket(params);
       st <- getServiceTicket(serviceUri)(tgt);
       session <- getJSessionId(serviceUri)(st)
     ) yield {
       session
-    }).handle { case e@ParseException(pf) =>
-      println(pf.details)
-      throw e
     }
   }
 
