@@ -1,13 +1,13 @@
 package fi.vm.sade.utils.cas
 
-import fi.vm.sade.utils.cas._
 import org.http4s.Status.Created
 import org.http4s._
 import org.http4s.client._
 import org.http4s.dsl._
 import org.http4s.headers.{Location, `Set-Cookie`}
+
 import scala.xml._
-import scalaz.concurrent.{Future, Task}
+import scalaz.concurrent.Task
 import scalaz.stream.{Channel, async, channel}
 
 object CasClient {
@@ -111,7 +111,9 @@ object TicketGrantingTicketDecoder {
   }
   val decodeTgt: (Response) => Task[TGTUrl] = response => DecodeResult.success(response).flatMap[TGTUrl] {
     case Created(resp) => tgtDecoder.decode(resp)
-    case resp => DecodeResult.failure(ParseFailure("TGT decoding failed", s"invalid TGT creation status: ${resp.status.code}"))
+    case resp =>
+      val body = resp.as[String].run
+      DecodeResult.failure(ParseFailure("TGT decoding failed", s"invalid TGT creation status: ${resp.status.code}: $body"))
   }.fold(e => throw new ParseException(e), identity)
 }
 
