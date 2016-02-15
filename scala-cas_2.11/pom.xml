@@ -20,7 +20,6 @@
         <dependency>
             <groupId>org.http4s</groupId>
             <artifactId>http4s-client_2.11</artifactId>
-            <version>0.10.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.scala-lang</groupId>
@@ -31,11 +30,12 @@
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
             </exclusions>
+            <version>0.12.1</version>
         </dependency>
         <dependency>
             <groupId>org.http4s</groupId>
             <artifactId>http4s-dsl_2.11</artifactId>
-            <version>0.10.0</version>
+            <version>0.12.1</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>

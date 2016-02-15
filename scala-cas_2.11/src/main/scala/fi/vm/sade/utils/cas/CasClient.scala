@@ -53,10 +53,10 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) {
       .prepAs[ST](POST(tgtUrl, UrlForm("service" -> service.toString())))(ServiceTicketDecoder.stDecoder)
   }
 
-  protected[cas] def getJSessionId(service: Uri)(serviceTicket: ST): Task[JSessionId] =
-    client
-      .prepare(GET(service.withQueryParam("ticket", serviceTicket)))
-      .flatMap(JSESSIONDecoder.decodeJsession)
+  protected[cas] def getJSessionId(service: Uri)(serviceTicket: ST): Task[JSessionId] = {
+    val uriWithQueryParam: Uri = service.withQueryParam("ticket", List(serviceTicket)).asInstanceOf[Uri]
+    client.prepare(GET(uriWithQueryParam)).flatMap(JSESSIONDecoder.decodeJsession)
+  }
 
   protected[cas] def fetchCasSession(params: CasParams) = {
     val serviceUri = resolve(virkailijaLoadBalancerUrl, params.service.securityUri)
@@ -107,11 +107,11 @@ object TicketGrantingTicketDecoder {
     }
   }
   val decodeTgt: (Response) => Task[TGTUrl] = response => DecodeResult.success(response).flatMap[TGTUrl] {
-    case Created(resp) => tgtDecoder.decode(resp)
+    case Created(resp) => tgtDecoder.decode(resp, true)
     case resp =>
       val body = resp.as[String].run
       DecodeResult.failure(ParseFailure("TGT decoding failed", s"invalid TGT creation status: ${resp.status.code}: $body"))
-  }.fold(e => throw new ParseException(e), identity)
+  }.fold(e => throw new DecodeFailureException(e), identity)
 }
 
 object JSESSIONDecoder {
@@ -125,10 +125,10 @@ object JSESSIONDecoder {
 
   def decodeJsession(response: Response) = DecodeResult.success(response).flatMap[JSessionId] {
     case resp if resp.status.isSuccess =>
-      jsessionDecoder.decode(resp)
+      jsessionDecoder.decode(resp, true)
     case resp =>
-      DecodeResult.failure(EntityDecoder.text.decode(resp).fold((_) => ParseFailure("Decoding JSESSIONID failed", s"service returned non-ok status code ${resp.status.code}"), (body) => ParseFailure("Decoding JSESSIONID failed", s"service returned non-ok status code ${resp.status.code}: $body")))
-  }.fold(e => throw ParseException(e), identity)
+      DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold((_) => ParseFailure("Decoding JSESSIONID failed", s"service returned non-ok status code ${resp.status.code}"), (body) => ParseFailure("Decoding JSESSIONID failed", s"service returned non-ok status code ${resp.status.code}: $body")))
+  }.fold(e => throw DecodeFailureException(e), identity)
 }
 
 object ServiceTicketResponseXmlDecoder {
@@ -142,8 +142,8 @@ object ServiceTicketResponseXmlDecoder {
 
   def decodeUsername(response: Response) = DecodeResult.success(response).flatMap[Username] {
     case resp if resp.status.isSuccess =>
-      serviceTicketDecoder.decode(resp)
+      serviceTicketDecoder.decode(resp, true)
     case resp =>
-      DecodeResult.failure(EntityDecoder.text.decode(resp).fold((_) => ParseFailure("Decoding username failed", s"CAS returned non-ok status code ${resp.status.code}"), (body) => ParseFailure("Decoding username failed", s"CAS returned non-ok status code ${resp.status.code}: $body")))
-  }.fold(e => throw ParseException(e), identity)
+      DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold((_) => ParseFailure("Decoding username failed", s"CAS returned non-ok status code ${resp.status.code}"), (body) => ParseFailure("Decoding username failed", s"CAS returned non-ok status code ${resp.status.code}: $body")))
+  }.fold(e => throw DecodeFailureException(e), identity)
 }
