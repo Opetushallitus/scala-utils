@@ -10,12 +10,12 @@ Yleiskäyttöisiä scala-kirjastoja Opetushallituksen verkkokehitykseen
 * Alimoduulit mahdollisimman yksinkertaisina: [SRP](https://en.wikipedia.org/wiki/Single_responsibility_principle)
 * Alimoduulilla oma versionumeronsa, nosta jos teet rikkovia muutoksia alimoduliin
 * Lisää uudet java-luokat omiin alimoduuleihinsa, varsinkin jos liittyy kiinteästi olemassaolevaan pakettiin
-  * jos teet muutoksia scala-utils alimoduulissa olevaan luokkaan niin:
-    1. tee scala-utils:sta ensin release versio (poista sen versionumerosta SNAPSHOT pääte ja pushaa)
+  * jos teet muutoksia scala-utils_2.11 alimoduulissa olevaan luokkaan niin:
+    1. tee scala-utils_2.11:sta ensin release versio (poista sen versionumerosta SNAPSHOT pääte ja pushaa)
     2. päivitä uusi SNAPSHOT versio
     3. tee uusi alimoduuli ja *siirrä* luokka sinne
     4. tee muutokset
-    5. vaihda käyttävä projekti riippumaan uudesta alimoduulista ja tarvittaessa yhä scala-utilsin uudesta versiosta
+    5. vaihda käyttävä projekti riippumaan uudesta alimoduulista ja tarvittaessa yhä scala-utils_2.11:in uudesta versiosta
 * Rootin versionumeroa ei pitäisi olla tarvetta muokata
 * OPH:n Bamboo ajaa "mvn clean deploy"-komennon mikä buildaa jar-paketit ja asentaa ne artifactoryyn
 
