@@ -10,7 +10,7 @@
     <artifactId>scala-cas_2.11</artifactId>
     <version>0.3.1-SNAPSHOT</version>
     <packaging>jar</packaging>
-    <name>scala-cas</name>
+    <name>scala-cas_2.11</name>
     <dependencies>
         <dependency>
             <groupId>org.scala-lang</groupId>
@@ -21,6 +21,16 @@
             <groupId>org.http4s</groupId>
             <artifactId>http4s-client_2.11</artifactId>
             <version>0.10.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.http4s</groupId>
@@ -38,11 +48,17 @@
             <artifactId>logback-classic</artifactId>
             <version>1.1.3</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.11</version>
+            <version>4.12</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -51,6 +67,10 @@
             <version>2.2.4</version>
             <scope>test</scope>
             <exclusions>
+                <exclusion>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>org.scala-lang</groupId>
                     <artifactId>scala-reflect</artifactId>
