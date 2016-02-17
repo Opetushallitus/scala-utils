@@ -15,8 +15,7 @@
         <module>scala-cas_2.11</module>
     </modules>
     <build>
-        <pluginManagement>
-            <plugins>
+        <plugins>
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
@@ -76,7 +75,6 @@
                 </configuration>
             </plugin>
         </plugins>
-        </pluginManagement>
     </build>
     <distributionManagement>
         <repository>
