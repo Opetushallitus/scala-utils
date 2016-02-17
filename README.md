@@ -12,7 +12,7 @@ Yleiskäyttöisiä scala-kirjastoja Opetushallituksen verkkokehitykseen
 * Lisää uudet java-luokat omiin alimoduuleihinsa, varsinkin jos liittyy kiinteästi olemassaolevaan pakettiin
   * jos teet muutoksia scala-utils alimoduulissa olevaan luokkaan niin:
     1. tee scala-utils:sta ensin release versio (poista sen versionumerosta SNAPSHOT pääte ja pushaa)
-    2. päivitä uusi SNAPHSHOT versio
+    2. päivitä uusi SNAPSHOT versio
     3. tee uusi alimoduuli ja *siirrä* luokka sinne
     4. tee muutokset
     5. vaihda käyttävä projekti riippumaan uudesta alimoduulista ja tarvittaessa yhä scala-utilsin uudesta versiosta
