@@ -4,7 +4,7 @@
     <groupId>fi.vm.sade</groupId>
     <artifactId>scala-utils</artifactId>
     <description>scala-utils</description>
-    <version>0.3.1-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
     <name>scala-utils</name>
     <packaging>pom</packaging>
     <organization>

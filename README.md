@@ -1,16 +1,24 @@
 scala-utils
 ==============
 
-Server-side utils library for OPH services written in Scala.
+Yleiskäyttöisiä scala-kirjastoja Opetushallituksen verkkokehitykseen
 
-The relevant parts:
+## Kehitys
 
-- [HttpClient](src/main/scala/fi/vm/sade/utils/http/HttpClient.scala)
-- [CasClient](src/main/scala/fi/vm/sade/utils/cas/CasClient.scala)
+* JDK 1.8, mutta target-version 1.7 (koska scala 2.11)
+* Jokainen alimoduuli julkaisee oman jar-pakettinsa
+* Alimoduulit mahdollisimman yksinkertaisina: [SRP](https://en.wikipedia.org/wiki/Single_responsibility_principle)
+* Alimoduulilla oma versionumeronsa, nosta jos teet rikkovia muutoksia alimoduliin
+* Lisää uudet java-luokat omiin alimoduuleihinsa, varsinkin jos liittyy kiinteästi olemassaolevaan pakettiin
+  * jos teet muutoksia scala-utils alimoduulissa olevaan luokkaan niin:
+    1. tee scala-utils:sta ensin release versio (poista sen versionumerosta SNAPSHOT pääte ja pushaa)
+    2. päivitä uusi SNAPHSHOT versio
+    3. tee uusi alimoduuli ja *siirrä* luokka sinne
+    4. tee muutokset
+    5. vaihda käyttävä projekti riippumaan uudesta alimoduulista ja tarvittaessa yhä scala-utilsin uudesta versiosta
+* Rootin versionumeroa ei pitäisi olla tarvetta muokata
+* OPH:n Bamboo ajaa "mvn clean deploy"-komennon mikä buildaa jar-paketit ja asentaa ne artifactoryyn
 
+## Komentoja
 
-This library is currently built and published to OPH artifactory on the Bamboo CI server.
-
-To use this library, add the following dependency to your SBT build file:
-
-    "fi.vm.sade" %% "scala-utils" % "0.1.0-SNAPSHOT"
+    mvn test
