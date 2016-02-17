@@ -10,7 +10,6 @@
     <artifactId>scala-cas_2.11</artifactId>
     <version>0.3.1-SNAPSHOT</version>
     <packaging>jar</packaging>
-    <description>Scala CAS utils</description>
     <name>scala-cas</name>
     <organization>
         <name>fi.vm.sade</name>
