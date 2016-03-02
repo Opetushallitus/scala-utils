@@ -7,7 +7,7 @@ import scala.collection.Map
 /**
  * Extends OphProperties with scala types
  */
-class OphProperties extends fi.vm.sade.properties.OphProperties {
+class OphProperties(files: String*) extends fi.vm.sade.properties.OphProperties(files:_*) {
   private val excludeCCFields = List("$outer")
   private def caseClassToMap(cc: Product) = {
     val declaredFields = cc.getClass.getDeclaredFields.toList.filter( f => !excludeCCFields.contains(f.getName))
