@@ -64,6 +64,7 @@ case class MongoConfig(url: String, dbname: String)
 
 case class Environment(val name: String) {
   def isLuokka = name == "ophitest"
+  def isVagrant = name == "vagrant"
   def isReppu = name == "oph"
   def isProduction = name == "ophprod"
   def isQA = name == "ophp"
