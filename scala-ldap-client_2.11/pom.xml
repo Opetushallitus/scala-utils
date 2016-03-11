@@ -43,7 +43,6 @@
                     <artifactId>scala-library</artifactId>
                 </exclusion>
             </exclusions>
-            <scope>provided</scope>
         </dependency>
         <!-- TEST DEPS -->
         <dependency>
