@@ -13,7 +13,7 @@ import scala.collection.mutable.ListBuffer
 /**
  *  HTTP client implementation that handles CAS authentication automatically
  */
-class CasAuthenticatingClient(casClient: CasClient, casParams: CasParams, serviceClient: Client, clientSubSystemCode: Option[String] = None) extends Client {
+class CasAuthenticatingClient(casClient: CasClient, casParams: CasParams, serviceClient: Client, clientSubSystemCode: String = null) extends Client {
 
   override def prepare(req: Request): Task[Response] = {
     def requestProcess(req: Request): Process[Task, Response] = Process(req).toSource zip (sessions) through requestChannel flatMap { case resp if sessionExpired(resp) => sessionRefreshProcess.drain ++ requestProcess(req)
@@ -34,8 +34,8 @@ class CasAuthenticatingClient(casClient: CasClient, casParams: CasParams, servic
   def addHeaders(req: Request, session: JSessionId): Request = {
     val csrf = "CasAuthenticatingClient"
     var list: ListBuffer[Header] = ListBuffer(headers.Cookie(Cookie("JSESSIONID", session), Cookie("CSRF",csrf)), Header("CSRF", csrf))
-    if(clientSubSystemCode.isDefined) {
-      list += Header("clientSubSystemCode", clientSubSystemCode.get)
+    if(clientSubSystemCode != null) {
+      list += Header("clientSubSystemCode", clientSubSystemCode)
     }
     req.putHeaders(list:_*)
   }
