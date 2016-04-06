@@ -1,6 +1,6 @@
 package fi.vm.sade.utils.cas
 
-import org.http4s.Uri
+import org.http4s.{ParseFailure, Uri}
 import org.http4s.dsl._
 
 case class CasUser(username: String, password: String)
@@ -14,7 +14,7 @@ case class CasParams(service: CasService, user: CasUser) {
 object CasParams {
   def apply(service:String, username: String, password: String):CasParams ={
     Uri.fromString(ensureTrailingSlash(service)).fold(
-      (e: Throwable) => throw new IllegalArgumentException(e),
+      (e: ParseFailure) => throw new IllegalArgumentException(e),
       (service: Uri) => CasParams(CasService(resolve(service, uri("j_spring_cas_security_check"))), CasUser(username, password)))
   }
 
