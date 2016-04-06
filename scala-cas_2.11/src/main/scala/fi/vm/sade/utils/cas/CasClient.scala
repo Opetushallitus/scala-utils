@@ -64,7 +64,7 @@ private[cas] object ServiceTicketValidator {
   private val serviceTicketDecoder =
     EntityDecoder.text.map(s => Utility.trim(scala.xml.XML.loadString(s))).flatMapR[Username] {
       case <cas:serviceResponse><cas:authenticationSuccess><cas:user>{user}</cas:user></cas:authenticationSuccess></cas:serviceResponse> => DecodeResult.success(user.text)
-      case authenticationFailure => DecodeResult.failure(ParseFailure(s"Service Ticket validation response decoding failed ($authenticationFailure)", s"response body is of wrong form ($authenticationFailure)"))
+      case authenticationFailure => DecodeResult.failure(InvalidMessageBodyFailure(s"Service Ticket validation response decoding failed: response body is of wrong form ($authenticationFailure)"))
     }
 
   private def decodeUsername(response: Response) = {
@@ -72,8 +72,11 @@ private[cas] object ServiceTicketValidator {
       case resp if resp.status.isSuccess =>
         serviceTicketDecoder.decode(resp, true)
       case resp =>
-        DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold((_) => ParseFailure("Decoding username failed", s"CAS returned non-ok status code ${resp.status.code}"), (body) => ParseFailure("Decoding username failed", s"CAS returned non-ok status code ${resp.status.code}: $body")))
-    }.fold(e => throw DecodeFailureException(e), identity)
+        DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold(
+          (_) => InvalidMessageBodyFailure(s"Decoding username failed: CAS returned non-ok status code ${resp.status.code}"),
+          (body) => InvalidMessageBodyFailure(s"Decoding username failed: CAS returned non-ok status code ${resp.status.code}: $body"))
+        )
+    }.fold(e => throw new CasClientException(e.message), identity)
   }
 }
 
@@ -85,8 +88,9 @@ private[cas] object ServiceTicketClient {
   }
 
   val stPattern = "(ST-.*)".r
-  val stDecoder = EntityDecoder.text.flatMapR[ServiceTicket] { case stPattern(st) => DecodeResult.success(st)
-  case nonSt => DecodeResult.failure(ParseFailure("Service Ticket decoding failed", s"response body is of wrong form ($nonSt)"))
+  val stDecoder = EntityDecoder.text.flatMapR[ServiceTicket] {
+    case stPattern(st) => DecodeResult.success(st)
+    case nonSt => DecodeResult.failure(InvalidMessageBodyFailure(s"Service Ticket decoding failed: response body is of wrong form ($nonSt)"))
   }
 }
 
@@ -105,11 +109,14 @@ private[cas] object TicketGrantingTicketClient extends Logging {
 
     msg.headers.get(Location).map(_.value) match {
       case Some(tgtPattern(tgtUrl)) =>
-        Uri.fromString(tgtUrl).fold((pf) => DecodeResult.failure(pf), (tgt) => DecodeResult.success(tgt))
+        Uri.fromString(tgtUrl).fold(
+          (pf: ParseFailure) => DecodeResult.failure(InvalidMessageBodyFailure(pf.message)),
+          (tgt) => DecodeResult.success(tgt)
+        )
       case Some(nontgturl) =>
-        DecodeResult.failure(ParseFailure("TGT decoding failed", s"location header has wrong format $nontgturl"))
+        DecodeResult.failure(InvalidMessageBodyFailure(s"TGT decoding failed: location header has wrong format $nontgturl"))
       case None =>
-        DecodeResult.failure(ParseFailure("TGT decoding failed", "No location header"))
+        DecodeResult.failure(InvalidMessageBodyFailure("TGT decoding failed: No location header"))
     }
   }
   private val decodeTgt: (Response) => Task[TGTUrl] = {response =>
@@ -119,9 +126,9 @@ private[cas] object TicketGrantingTicketClient extends Logging {
         tgtDecoder.decode(resp, true)
       case resp =>
         val body = resp.as[String].run
-        DecodeResult.failure(ParseFailure("TGT decoding failed", s"invalid TGT creation status: ${resp.status.code}: $body"))
+        DecodeResult.failure(InvalidMessageBodyFailure(s"TGT decoding failed: invalid TGT creation status: ${resp.status.code}: $body"))
     }
-      .fold(e => throw new DecodeFailureException(e), identity)
+      .fold(e => throw new CasClientException(e.message), identity)
   }
 }
 
@@ -136,15 +143,18 @@ private[cas] object JSessionIdClient {
   private val jsessionDecoder = EntityDecoder.decodeBy[JSessionId](MediaRange.`*/*`) { (msg) =>
     msg.headers.collectFirst {
       case `Set-Cookie`(`Set-Cookie`(cookie)) if cookie.name == "JSESSIONID" => DecodeResult.success(cookie.content)
-    }.getOrElse(DecodeResult.failure(ParseFailure("Decoding JSESSIONID failed", "no cookie found for JSESSIONID")))
+    }.getOrElse(DecodeResult.failure(InvalidMessageBodyFailure(s"Decoding JSESSIONID failed: no cookie found for JSESSIONID")))
   }
 
   private def decodeJsession(response: Response) = DecodeResult.success(response).flatMap[JSessionId] {
     case resp if resp.status.isSuccess =>
       jsessionDecoder.decode(resp, true)
     case resp =>
-      DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold((_) => ParseFailure("Decoding JSESSIONID failed", s"service returned non-ok status code ${resp.status.code}"), (body) => ParseFailure("Decoding JSESSIONID failed", s"service returned non-ok status code ${resp.status.code}: $body")))
-  }.fold(e => throw DecodeFailureException(e), identity)
+      DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold(
+        (_) => InvalidMessageBodyFailure(s"Decoding JSESSIONID faile: service returned non-ok status code ${resp.status.code}"),
+        (body) => InvalidMessageBodyFailure(s"Decoding JSESSIONID failed: service returned non-ok status code ${resp.status.code}: $body"))
+      )
+  }.fold(e => throw new CasClientException(e.message), identity)
 }
 
 private[cas] object CasLogout {
@@ -156,3 +166,5 @@ private[cas] object CasLogout {
     }
   }
 }
+
+class CasClientException(message: String) extends RuntimeException(message)

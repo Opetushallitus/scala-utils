@@ -18,6 +18,11 @@
             <version>2.11.7</version>
         </dependency>
         <dependency>
+            <groupId>org.scala-lang.modules</groupId>
+            <artifactId>scala-xml_2.11</artifactId>
+            <version>1.0.5</version>
+        </dependency>
+        <dependency>
             <groupId>org.http4s</groupId>
             <artifactId>http4s-client_2.11</artifactId>
             <exclusions>
@@ -30,12 +35,12 @@
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
             </exclusions>
-            <version>0.12.1</version>
+            <version>0.13.0a</version>
         </dependency>
         <dependency>
             <groupId>org.http4s</groupId>
             <artifactId>http4s-dsl_2.11</artifactId>
-            <version>0.12.1</version>
+            <version>0.13.0a</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
