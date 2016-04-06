@@ -1,7 +1,9 @@
 package fi.vm.sade.utils.cas
 
 import fi.vm.sade.utils.cas.CasClient._
-import org.http4s._
+import scala.collection.mutable.ListBuffer
+
+import org.http4s.{headers, _}
 import org.http4s.client.{Client, DisposableResponse}
 import org.http4s.headers.Location
 
@@ -14,10 +16,12 @@ import scalaz.concurrent.Task
  *  CasClient. Stale sessions are detected and refreshed automatically.
  */
 object CasAuthenticatingClient extends Logging {
-  def apply(casClient: CasClient, casParams: CasParams, serviceClient: Client): Client = new CasAuthenticatingClient(casClient, casParams, serviceClient).httpClient
+  def apply(casClient: CasClient, casParams: CasParams, serviceClient: Client, clientSubSystemCode: String = null): Client = {
+    new CasAuthenticatingClient(casClient, casParams, serviceClient, clientSubSystemCode).httpClient
+  }
 }
 
-class CasAuthenticatingClient(casClient: CasClient, casParams: CasParams, serviceClient: Client) extends Logging {
+class CasAuthenticatingClient(casClient: CasClient, casParams: CasParams, serviceClient: Client, clientSubSystemCode: String) extends Logging {
   lazy val httpClient = Client(
     open = Service.lift(open _),
     shutdown = serviceClient.shutdown
@@ -35,15 +39,25 @@ class CasAuthenticatingClient(casClient: CasClient, casParams: CasParams, servic
     }
   }
 
+  private def addHeaders(req: Request, session: JSessionId): Request = {
+    val csrf = "CasAuthenticatingClient"
+    var list: ListBuffer[Header] = ListBuffer(headers.Cookie(Cookie("JSESSIONID", session), Cookie("CSRF", csrf)), Header("CSRF", csrf))
+    if (clientSubSystemCode != null) {
+      list += Header("clientSubSystemCode", clientSubSystemCode)
+    }
+    req.putHeaders(list: _*)
+  }
+
   private def openWithCasSession(sessionIdTask: Task[JSessionId], request: Request): Task[DisposableResponse] = {
     sessionIdTask.flatMap { jsessionid =>
-      serviceClient.open(request.putHeaders(headers.Cookie(Cookie("JSESSIONID", jsessionid))))
+      val requestWithHeaders = addHeaders(request, jsessionid)
+      serviceClient.open(requestWithHeaders)
     }
   }
 
   private def sessionExpired(resp: Response): Boolean = {
     resp.status.code == Status.Found.code && resp.headers.get(Location).exists(_.value.contains("/cas/login"))
-  }
+}
 
   private def getCasSession(params: CasParams): Task[JSessionId] = {
     synchronized(sessions.get(params)) match {
