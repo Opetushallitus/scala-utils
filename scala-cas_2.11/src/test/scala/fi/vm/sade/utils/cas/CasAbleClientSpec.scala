@@ -1,13 +1,12 @@
 package fi.vm.sade.utils.cas
 
 import org.http4s._
-import org.http4s.client.Client
+import org.http4s.client.{Client, DisposableResponse}
 import org.http4s.dsl._
 import org.http4s.headers.`Content-Type`
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
-import org.scalatest.{Matchers, FlatSpec}
-
+import org.scalatest.{FlatSpec, Matchers}
 
 import scalaz.concurrent.Task
 
@@ -20,38 +19,37 @@ class CasAbleClientSpec extends FlatSpec with Matchers {
 
   it should "inject a CAS session into a http request as a JSESSIONID cookie" in {
     val casParams = CasParams("/secured-service", "foo", "bar")
-    val casMock = new CasMock(virkailijaUrl = virkailijaUri, params = casParams, sessionGen = (_) => "session1")
-    val mock = new Client {
-      override def shutdown(): Task[Unit] = Task.now[Unit] {}
-
-      override def prepare(req: Request): Task[Response] = req match {
+    val casMock = new CasMock(params = casParams, sessionGen = (_) => "session1")
+    val mock = Client(
+      open = Service.lift((req: Request) => req match {
         case req@GET -> Root / "secured" if checkSession(req, "session1") =>
-          Ok("OK")
+          Ok("OK").map(DisposableResponse(_, Task.now[Unit] {}))
         case _ =>
-          NotFound()
-      }
-    }
-    val casClient = new CasClient(virkailijaUri, casMock)
-    val client = new CasAuthenticatingClient(casClient, casParams, mock)
+          NotFound().map(DisposableResponse(_, Task.now[Unit] {}))
+      }),
+      shutdown = Task.now[Unit] {}
+    )
+    val casClient = new CasClient(virkailijaUri, casMock.client)
+    val client = CasAuthenticatingMiddleware(casClient, casParams)(mock)
     val requestUri = resolve(virkailijaUri, uri("/secured"))
     client.prepare(requestUri).run.status should be(Status.Ok)
   }
 
   it should "refresh the expired CAS session and repeat the request with the new session" in {
     val casParams = CasParams("/secured-service", "foo", "bar")
-    val casMock = new CasMock(virkailijaUrl = virkailijaUri, params = casParams)
-    val mock = new Client {
-      override def shutdown(): Task[Unit] = Task.now[Unit] {}
-      override def prepare(req: Request): Task[Response] = req match {
-        case req@GET -> Root / "secured" if checkSession(req, casMock.initialTgt.toString) =>
-          Found(resolve(virkailijaUri, uri("/cas/login")))
-        case req@GET -> Root / "secured" if checkSession(req, (casMock.initialTgt + 1).toString) =>
-          Ok("Ok")
-      }
-    }
+    val casMock = new CasMock(params = casParams)
+    val mock = Client(
+      shutdown = Task.now[Unit] {},
+      open = Service.lift((req: Request) => req match {
+        case req@GET -> Root / "secured" if checkSession(req, CasServer.initialTgt.toString) =>
+          Found(resolve(virkailijaUri, uri("/cas/login"))).map(DisposableResponse(_, Task.now[Unit] {}))
+        case req@GET -> Root / "secured" if checkSession(req, (CasServer.initialTgt + 1).toString) =>
+          Ok("Ok").map(DisposableResponse(_, Task.now[Unit] {}))
+      })
+    )
 
-    val casClient = new CasClient(virkailijaUri, casMock)
-    val client = new CasAuthenticatingClient(casClient, CasParams("/secured-service", "foo", "bar"), mock)
+    val casClient = new CasClient(virkailijaUri, casMock.client)
+    val client = CasAuthenticatingMiddleware(casClient, CasParams("/secured-service", "foo", "bar"))(mock)
 
     val requestUri = resolve(virkailijaUri, uri("/secured"))
     client.prepare(requestUri).run.status should be(Status.Ok)
@@ -60,19 +58,18 @@ class CasAbleClientSpec extends FlatSpec with Matchers {
 
   it should "retain the headers from the given request" in {
     val casParams = CasParams("/secured-service", "foo", "bar")
-    val casMock = new CasMock(virkailijaUrl = virkailijaUri, params = casParams)
+    val casMock = new CasMock(params = casParams)
     val reqheaders = Headers(`Content-Type`(MediaType.`application/excel`), headers.Cookie(Cookie("foo", "bar"), Cookie("fuu", "bur")))
-    val mock = new Client {
-      override def shutdown(): Task[Unit] = Task.now[Unit] {}
+    val mock = Client(
+      shutdown = Task.now[Unit] {},
+      open = Service.lift((req: Request) => req match {
+        case req@GET -> Root / "secured" if checkSession(req, CasServer.initialTgt.toString) && !reqheaders.exists(header => !req.headers.toList.contains(header)) =>
+          Ok("Ok").map(DisposableResponse(_, Task.now[Unit] {}))
+      })
+    )
 
-      override def prepare(req: Request): Task[Response] = req match {
-        case req@GET -> Root / "secured" if checkSession(req, casMock.initialTgt.toString) && !reqheaders.exists(header => !req.headers.toList.contains(header)) =>
-          Ok("Ok")
-      }
-    }
-
-    val casClient = new CasClient(virkailijaUri, casMock)
-    val client = new CasAuthenticatingClient(casClient, CasParams("/secured-service", "foo", "bar"), mock)
+    val casClient = new CasClient(virkailijaUri, casMock.client)
+    val client = CasAuthenticatingMiddleware(casClient, CasParams("/secured-service", "foo", "bar"))(mock)
 
     val requestUri = resolve(virkailijaUri, uri("/secured"))
 
