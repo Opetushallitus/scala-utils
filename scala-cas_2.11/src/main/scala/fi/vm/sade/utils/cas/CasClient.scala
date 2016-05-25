@@ -53,6 +53,23 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) {
 
 private[cas] object ServiceTicketValidator {
   def validateServiceTicket(virkailijaLoadBalancerUrl: Uri, client: Client, service: String)(serviceTicket: ServiceTicket): Task[Username] = {
+    val serviceTicketDecoder = EntityDecoder.text.map(s => Utility.trim(scala.xml.XML.loadString(s))).flatMapR[Username] {
+      case <cas:serviceResponse><cas:authenticationSuccess><cas:user>{user}</cas:user></cas:authenticationSuccess></cas:serviceResponse> => DecodeResult.success(user.text)
+      case authenticationFailure => DecodeResult.failure(InvalidMessageBodyFailure(s"Service Ticket validation response decoding failed at ${service}: response body is of wrong form ($authenticationFailure)"))
+    }
+
+    def decodeUsername(response: Response) = {
+      DecodeResult.success(response).flatMap[Username] {
+        case resp if resp.status.isSuccess =>
+          serviceTicketDecoder.decode(resp, true)
+        case resp =>
+          DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold(
+            (_) => InvalidMessageBodyFailure(s"Decoding username failed at ${service}: CAS returned non-ok status code ${resp.status.code}"),
+            (body) => InvalidMessageBodyFailure(s"Decoding username failed at ${service}: CAS returned non-ok status code ${resp.status.code}: $body"))
+          )
+      }.fold(e => throw new CasClientException(e.message), identity)
+    }
+
     val pUri: Uri = resolve(virkailijaLoadBalancerUrl, uri("/cas/serviceValidate"))
       .withQueryParam("ticket", serviceTicket)
       .withQueryParam("service",service)
@@ -60,101 +77,84 @@ private[cas] object ServiceTicketValidator {
     client
       .fetch(GET(pUri))(decodeUsername)
   }
-
-  private val serviceTicketDecoder =
-    EntityDecoder.text.map(s => Utility.trim(scala.xml.XML.loadString(s))).flatMapR[Username] {
-      case <cas:serviceResponse><cas:authenticationSuccess><cas:user>{user}</cas:user></cas:authenticationSuccess></cas:serviceResponse> => DecodeResult.success(user.text)
-      case authenticationFailure => DecodeResult.failure(InvalidMessageBodyFailure(s"Service Ticket validation response decoding failed: response body is of wrong form ($authenticationFailure)"))
-    }
-
-  private def decodeUsername(response: Response) = {
-    DecodeResult.success(response).flatMap[Username] {
-      case resp if resp.status.isSuccess =>
-        serviceTicketDecoder.decode(resp, true)
-      case resp =>
-        DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold(
-          (_) => InvalidMessageBodyFailure(s"Decoding username failed: CAS returned non-ok status code ${resp.status.code}"),
-          (body) => InvalidMessageBodyFailure(s"Decoding username failed: CAS returned non-ok status code ${resp.status.code}: $body"))
-        )
-    }.fold(e => throw new CasClientException(e.message), identity)
-  }
 }
 
 private[cas] object ServiceTicketClient {
   import CasClient._
 
   def getServiceTicket(client: Client, service: Uri)(tgtUrl: TGTUrl) = {
+    val stDecoder = EntityDecoder.text.flatMapR[ServiceTicket] {
+      case stPattern(st) => DecodeResult.success(st)
+      case nonSt => DecodeResult.failure(InvalidMessageBodyFailure(s"Service Ticket decoding failed at ${service}: response body is of wrong form ($nonSt)"))
+    }
     client.fetchAs[ServiceTicket](POST(tgtUrl, UrlForm("service" -> service.toString())))(stDecoder)
   }
 
   val stPattern = "(ST-.*)".r
-  val stDecoder = EntityDecoder.text.flatMapR[ServiceTicket] {
-    case stPattern(st) => DecodeResult.success(st)
-    case nonSt => DecodeResult.failure(InvalidMessageBodyFailure(s"Service Ticket decoding failed: response body is of wrong form ($nonSt)"))
-  }
 }
 
 private[cas] object TicketGrantingTicketClient extends Logging {
   import CasClient.TGTUrl
 
   def getTicketGrantingTicket(virkailijaLoadBalancerUrl: Uri, client: Client, params: CasParams): Task[TGTUrl] = {
+    val tgtUri: TGTUrl = resolve(virkailijaLoadBalancerUrl, uri("/cas/v1/tickets"))
+    val tgtDecoder = EntityDecoder.decodeBy[TGTUrl](MediaRange.`*/*`) { (msg) =>
+      val tgtPattern = "(.*TGT-.*)".r
+
+      msg.headers.get(Location).map(_.value) match {
+        case Some(tgtPattern(tgtUrl)) =>
+          Uri.fromString(tgtUrl).fold(
+            (pf: ParseFailure) => DecodeResult.failure(InvalidMessageBodyFailure(pf.message)),
+            (tgt) => DecodeResult.success(tgt)
+          )
+        case Some(nontgturl) =>
+          DecodeResult.failure(InvalidMessageBodyFailure(s"TGT decoding failed at ${tgtUri}: location header has wrong format $nontgturl"))
+        case None =>
+          DecodeResult.failure(InvalidMessageBodyFailure("TGT decoding failed at ${tgtUri}: No location header at"))
+      }
+    }
+    val decodeTgt: (Response) => Task[TGTUrl] = {response =>
+      DecodeResult.success(response)
+        .flatMap[TGTUrl] {
+        case Created(resp) =>
+          tgtDecoder.decode(resp, true)
+        case resp =>
+          val body = resp.as[String].run
+          DecodeResult.failure(InvalidMessageBodyFailure(s"TGT decoding failed at ${tgtUri}: invalid TGT creation status: ${resp.status.code}: $body"))
+      }
+        .fold(e => throw new CasClientException(e.message), identity)
+    }
     client
       .fetch(POST(resolve(virkailijaLoadBalancerUrl, uri("/cas/v1/tickets")), params.user))(decodeTgt)
   }
 
   private implicit val casUserEncoder = UrlForm.entityEncoder().contramap((user: CasUser) => UrlForm("username" -> user.username, "password" -> user.password))
 
-  private val tgtDecoder = EntityDecoder.decodeBy[TGTUrl](MediaRange.`*/*`) { (msg) =>
-    val tgtPattern = "(.*TGT-.*)".r
-
-    msg.headers.get(Location).map(_.value) match {
-      case Some(tgtPattern(tgtUrl)) =>
-        Uri.fromString(tgtUrl).fold(
-          (pf: ParseFailure) => DecodeResult.failure(InvalidMessageBodyFailure(pf.message)),
-          (tgt) => DecodeResult.success(tgt)
-        )
-      case Some(nontgturl) =>
-        DecodeResult.failure(InvalidMessageBodyFailure(s"TGT decoding failed: location header has wrong format $nontgturl"))
-      case None =>
-        DecodeResult.failure(InvalidMessageBodyFailure("TGT decoding failed: No location header"))
-    }
-  }
-  private val decodeTgt: (Response) => Task[TGTUrl] = {response =>
-    DecodeResult.success(response)
-      .flatMap[TGTUrl] {
-      case Created(resp) =>
-        tgtDecoder.decode(resp, true)
-      case resp =>
-        val body = resp.as[String].run
-        DecodeResult.failure(InvalidMessageBodyFailure(s"TGT decoding failed: invalid TGT creation status: ${resp.status.code}: $body"))
-    }
-      .fold(e => throw new CasClientException(e.message), identity)
-  }
 }
 
 private[cas] object JSessionIdClient {
   import CasClient._
 
   def getJSessionId(client: Client, service: Uri)(serviceTicket: ServiceTicket): Task[JSessionId] = {
+    val jsessionDecoder = EntityDecoder.decodeBy[JSessionId](MediaRange.`*/*`) { (msg) =>
+      msg.headers.collectFirst {
+        case `Set-Cookie`(`Set-Cookie`(cookie)) if cookie.name == "JSESSIONID" => DecodeResult.success(cookie.content)
+      }.getOrElse(DecodeResult.failure(InvalidMessageBodyFailure(s"Decoding JSESSIONID failed at ${service}: no cookie found for JSESSIONID")))
+    }
+
+    def decodeJsession(response: Response) = DecodeResult.success(response).flatMap[JSessionId] {
+      case resp if resp.status.isSuccess =>
+        jsessionDecoder.decode(resp, true)
+      case resp =>
+        DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold(
+          (_) => InvalidMessageBodyFailure(s"Decoding JSESSIONID failed at ${service}: service returned non-ok status code ${resp.status.code}"),
+          (body) => InvalidMessageBodyFailure(s"Decoding JSESSIONID failed at ${service}: service returned non-ok status code ${resp.status.code}: $body"))
+        )
+    }.fold(e => throw new CasClientException(e.message), identity)
+
     val uriWithQueryParam: Uri = service.withQueryParam("ticket", List(serviceTicket)).asInstanceOf[Uri]
     client.fetch(GET(uriWithQueryParam))(decodeJsession)
   }
-
-  private val jsessionDecoder = EntityDecoder.decodeBy[JSessionId](MediaRange.`*/*`) { (msg) =>
-    msg.headers.collectFirst {
-      case `Set-Cookie`(`Set-Cookie`(cookie)) if cookie.name == "JSESSIONID" => DecodeResult.success(cookie.content)
-    }.getOrElse(DecodeResult.failure(InvalidMessageBodyFailure(s"Decoding JSESSIONID failed: no cookie found for JSESSIONID")))
-  }
-
-  private def decodeJsession(response: Response) = DecodeResult.success(response).flatMap[JSessionId] {
-    case resp if resp.status.isSuccess =>
-      jsessionDecoder.decode(resp, true)
-    case resp =>
-      DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold(
-        (_) => InvalidMessageBodyFailure(s"Decoding JSESSIONID faile: service returned non-ok status code ${resp.status.code}"),
-        (body) => InvalidMessageBodyFailure(s"Decoding JSESSIONID failed: service returned non-ok status code ${resp.status.code}: $body"))
-      )
-  }.fold(e => throw new CasClientException(e.message), identity)
 }
 
 private[cas] object CasLogout {
