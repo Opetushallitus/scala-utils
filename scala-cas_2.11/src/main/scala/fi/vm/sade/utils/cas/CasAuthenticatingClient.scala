@@ -33,7 +33,7 @@ class CasAuthenticatingClient(casClient: CasClient, casParams: CasParams, servic
     openWithCasSession(getCasSession(casParams), req).flatMap {
       case resp if sessionExpired(resp.response) =>
         logger.debug("Session for " + casParams + " expired")
-        openWithCasSession(refreshSession(casParams), req)
+        resp.dispose.flatMap(_ => openWithCasSession(refreshSession(casParams), req))
       case resp =>
         Task.now(resp)
     }
