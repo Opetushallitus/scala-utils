@@ -157,14 +157,6 @@ private[cas] object JSessionIdClient {
   }.fold(e => throw new CasClientException(e.message), identity)
 }
 
-private[cas] object CasLogout {
-  def parseTicketFromLogoutRequest(logoutRequest: String): Option[String] = {
-    Utility.trim(XML.loadString(logoutRequest)) match {
-      case <samlp:LogoutRequest><saml:NameID>{nameID}</saml:NameID><samlp:SessionIndex>{ticket}</samlp:SessionIndex></samlp:LogoutRequest> =>
-        Some(ticket.text)
-      case _ => None
-    }
-  }
-}
+
 
 class CasClientException(message: String) extends RuntimeException(message)
