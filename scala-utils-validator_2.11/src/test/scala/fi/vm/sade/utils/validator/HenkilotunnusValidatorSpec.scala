@@ -16,7 +16,7 @@ class HenkilotunnusValidatorSpec extends FlatSpec with Matchers {
 
   implicit def validation2sequence(f: ValidationNel[String, String]): Seq[String] = f match {
     case Success(s) => Seq(s)
-    case Failure(fails) => fails.list.toSeq
+    case Failure(fails) => fails.list.toList
   }
 
   it should "validate valid henkilotunnus" in {
