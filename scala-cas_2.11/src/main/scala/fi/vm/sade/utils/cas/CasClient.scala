@@ -135,7 +135,7 @@ private[cas] object JSessionIdClient {
   }
 }
 
-private[cas] object CasLogout {
+object CasLogout {
   def parseTicketFromLogoutRequest(logoutRequest: String): Option[String] = {
     Utility.trim(XML.loadString(logoutRequest)) match {
       case <samlp:LogoutRequest><saml:NameID>{nameID}</saml:NameID><samlp:SessionIndex>{ticket}</samlp:SessionIndex></samlp:LogoutRequest> =>
