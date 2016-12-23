@@ -12,9 +12,9 @@
     <modules>
         <module>scala-utils_2.11</module>
         <module>scala-utils-validator_2.11</module>
-        <module>scala-cas_2.11</module>
+        <module>scala-cas_2.12</module>
         <!--<module>scala-properties_2.11</module>-->
-        <module>scala-ldap-client_2.11</module>
+        <module>scala-ldap-client_2.12</module>
     </modules>
     <build>
         <plugins>
