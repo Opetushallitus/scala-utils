@@ -32,12 +32,17 @@
         <dependency>
             <groupId>org.json4s</groupId>
             <artifactId>json4s-jackson_2.11</artifactId>
-            <version>3.2.10</version>
+            <version>3.5.1</version>
         </dependency>
         <dependency>
             <groupId>org.json4s</groupId>
             <artifactId>json4s-ext_2.11</artifactId>
-            <version>3.2.10</version>
+            <version>3.5.1</version>
+        </dependency>
+        <dependency>
+          <groupId>org.scala-lang.modules</groupId>
+          <artifactId>scala-xml_2.11</artifactId>
+          <version>1.0.6</version>
         </dependency>
       </dependencies>
     </dependencyManagement>
