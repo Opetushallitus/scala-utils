@@ -11,7 +11,7 @@ import scala.xml._
 import scalaz.concurrent.Task
 
 object CasClient {
-  type JSessionId = String
+  type SessionCookie = String
   type Username = String
   type TGTUrl = Uri
   type ServiceTicket = String
@@ -34,17 +34,17 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) {
    *
    *  1) getting a CAS ticket granting ticket (TGT)
    *  2) getting a CAS service ticket
-   *  3) getting a JSESSIONID cookie from the service.
+   *  3) getting a session cookie from the service.
    *
-   *  Returns the JSESSIONID that can be used for communications later.
+   *  Returns the session that can be used for communications later.
    */
-  def fetchCasSession(params: CasParams): Task[JSessionId] = {
+  def fetchCasSession(params: CasParams, sessionCookieName: String = "JSESSIONID"): Task[SessionCookie] = {
     val serviceUri = resolve(virkailijaLoadBalancerUrl, params.service.securityUri)
 
     for (
       tgt <- TicketGrantingTicketClient.getTicketGrantingTicket(virkailijaLoadBalancerUrl, client, params);
       st <- ServiceTicketClient.getServiceTicket(client, serviceUri)(tgt);
-      session <- JSessionIdClient.getJSessionId(client, serviceUri)(st)
+      session <- SessionCookieClient.getSessionCookieValue(client, serviceUri, sessionCookieName)(st)
     ) yield {
       session
     }
@@ -132,27 +132,27 @@ private[cas] object TicketGrantingTicketClient extends Logging {
   }
 }
 
-private[cas] object JSessionIdClient {
+private[cas] object SessionCookieClient {
   import CasClient._
 
-  def getJSessionId(client: Client, service: Uri)(serviceTicket: ServiceTicket): Task[JSessionId] = {
+  def getSessionCookieValue(client: Client, service: Uri, sessionCookieName: String)(serviceTicket: ServiceTicket): Task[SessionCookie] = {
     val uriWithQueryParam: Uri = service.withQueryParam("ticket", List(serviceTicket)).asInstanceOf[Uri]
-    client.fetch(GET(uriWithQueryParam))(decodeJsession)
+    client.fetch(GET(uriWithQueryParam))(decodeJsession(sessionCookieName, _))
   }
 
-  private val jsessionDecoder = EntityDecoder.decodeBy[JSessionId](MediaRange.`*/*`) { (msg) =>
+  private def jsessionDecoder(sessionCookieName: String) = EntityDecoder.decodeBy[SessionCookie](MediaRange.`*/*`) { (msg) =>
     msg.headers.collectFirst {
-      case `Set-Cookie`(`Set-Cookie`(cookie)) if cookie.name == "JSESSIONID" => DecodeResult.success(cookie.content)
-    }.getOrElse(DecodeResult.failure(InvalidMessageBodyFailure(s"Decoding JSESSIONID failed: no cookie found for JSESSIONID")))
+      case `Set-Cookie`(`Set-Cookie`(cookie)) if cookie.name == sessionCookieName => DecodeResult.success(cookie.content)
+    }.getOrElse(DecodeResult.failure(InvalidMessageBodyFailure(s"Decoding $sessionCookieName failed: no cookie found for JSESSIONID")))
   }
 
-  private def decodeJsession(response: Response) = DecodeResult.success(response).flatMap[JSessionId] {
+  private def decodeJsession(sessionCookieName: String, response: Response) = DecodeResult.success(response).flatMap[SessionCookie] {
     case resp if resp.status.isSuccess =>
-      jsessionDecoder.decode(resp, true)
+      jsessionDecoder(sessionCookieName).decode(resp, true)
     case resp =>
       DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold(
-        (_) => InvalidMessageBodyFailure(s"Decoding JSESSIONID faile: service returned non-ok status code ${resp.status.code}"),
-        (body) => InvalidMessageBodyFailure(s"Decoding JSESSIONID failed: service returned non-ok status code ${resp.status.code}: $body"))
+        (_) => InvalidMessageBodyFailure(s"Decoding $sessionCookieName faile: service returned non-ok status code ${resp.status.code}"),
+        (body) => InvalidMessageBodyFailure(s"Decoding $sessionCookieName failed: service returned non-ok status code ${resp.status.code}: $body"))
       )
   }.fold(e => throw new CasClientException(e.message), identity)
 }

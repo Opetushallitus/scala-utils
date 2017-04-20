@@ -27,7 +27,7 @@ class CasAuthenticatingClient(casClient: CasClient, casParams: CasParams, servic
     shutdown = serviceClient.shutdown
   )
 
-  private var sessions: collection.mutable.Map[CasParams, JSessionId] = collection.mutable.Map.empty
+  private var sessions: collection.mutable.Map[CasParams, SessionCookie] = collection.mutable.Map.empty
 
   private def open(req: Request): Task[DisposableResponse] = {
     openWithCasSession(getCasSession(casParams), req).flatMap {
@@ -39,7 +39,7 @@ class CasAuthenticatingClient(casClient: CasClient, casParams: CasParams, servic
     }
   }
 
-  private def addHeaders(req: Request, session: JSessionId): Request = {
+  private def addHeaders(req: Request, session: SessionCookie): Request = {
     val csrf = "CasAuthenticatingClient"
     var list: ListBuffer[Header] = ListBuffer(headers.Cookie(Cookie("JSESSIONID", session), Cookie("CSRF", csrf)), Header("CSRF", csrf))
     if (clientSubSystemCode != null) {
@@ -48,7 +48,7 @@ class CasAuthenticatingClient(casClient: CasClient, casParams: CasParams, servic
     req.putHeaders(list: _*)
   }
 
-  private def openWithCasSession(sessionIdTask: Task[JSessionId], request: Request): Task[DisposableResponse] = {
+  private def openWithCasSession(sessionIdTask: Task[SessionCookie], request: Request): Task[DisposableResponse] = {
     sessionIdTask.flatMap { jsessionid =>
       val requestWithHeaders = addHeaders(request, jsessionid)
       serviceClient.open(requestWithHeaders)
@@ -59,7 +59,7 @@ class CasAuthenticatingClient(casClient: CasClient, casParams: CasParams, servic
     resp.status.code == Status.Found.code && resp.headers.get(Location).exists(_.value.contains("/cas/login"))
 }
 
-  private def getCasSession(params: CasParams): Task[JSessionId] = {
+  private def getCasSession(params: CasParams): Task[SessionCookie] = {
     synchronized(sessions.get(params)) match {
       case None =>
         logger.debug("No existing jsessionid found for " + params + ", creating new")
@@ -69,7 +69,7 @@ class CasAuthenticatingClient(casClient: CasClient, casParams: CasParams, servic
     }
   }
 
-  private def refreshSession(params: CasParams): Task[JSessionId] = {
+  private def refreshSession(params: CasParams): Task[SessionCookie] = {
     casClient.fetchCasSession(params).map { session =>
       logger.debug("Storing new jsessionid for " + params)
       synchronized(sessions.put(params, session))
