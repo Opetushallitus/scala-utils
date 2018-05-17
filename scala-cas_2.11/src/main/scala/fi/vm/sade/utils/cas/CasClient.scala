@@ -1,6 +1,7 @@
 package fi.vm.sade.utils.cas
 
 import fi.vm.sade.utils.cas.CasClient._
+import org.http4s.EntityDecoder.collectBinary
 import org.http4s.Status.Created
 import org.http4s._
 import org.http4s.client._
@@ -15,6 +16,9 @@ object CasClient {
   type Username = String
   type TGTUrl = Uri
   type ServiceTicket = String
+  val textOrXmlDecoder = EntityDecoder.decodeBy(MediaRange.`text/*`, MediaType.`application/xml`)(msg =>
+    collectBinary(msg).map(bs => new String(bs.toArray, msg.charset.getOrElse(DefaultCharset).nioCharset))
+  )
 }
 
 /**
@@ -62,7 +66,7 @@ private[cas] object ServiceTicketValidator {
   }
 
   private val serviceTicketDecoder =
-    EntityDecoder.text.map(s => Utility.trim(scala.xml.XML.loadString(s))).flatMapR[Username] {
+    textOrXmlDecoder.map(s => Utility.trim(scala.xml.XML.loadString(s))).flatMapR[Username] {
       case <cas:serviceResponse><cas:authenticationSuccess><cas:user>{user}</cas:user></cas:authenticationSuccess></cas:serviceResponse> => DecodeResult.success(user.text)
       case authenticationFailure => DecodeResult.failure(InvalidMessageBodyFailure(s"Service Ticket validation response decoding failed: response body is of wrong form ($authenticationFailure)"))
     }
@@ -72,7 +76,7 @@ private[cas] object ServiceTicketValidator {
       case resp if resp.status.isSuccess =>
         serviceTicketDecoder.decode(resp, true)
       case resp =>
-        DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold(
+        DecodeResult.failure(textOrXmlDecoder.decode(resp, true).fold(
           (_) => InvalidMessageBodyFailure(s"Decoding username failed: CAS returned non-ok status code ${resp.status.code}"),
           (body) => InvalidMessageBodyFailure(s"Decoding username failed: CAS returned non-ok status code ${resp.status.code}: $body"))
         )
@@ -88,7 +92,7 @@ private[cas] object ServiceTicketClient {
   }
 
   val stPattern = "(ST-.*)".r
-  val stDecoder = EntityDecoder.text.flatMapR[ServiceTicket] {
+  val stDecoder = textOrXmlDecoder.flatMapR[ServiceTicket] {
     case stPattern(st) => DecodeResult.success(st)
     case nonSt => DecodeResult.failure(InvalidMessageBodyFailure(s"Service Ticket decoding failed: response body is of wrong form ($nonSt)"))
   }
@@ -150,7 +154,7 @@ private[cas] object SessionCookieClient {
     case resp if resp.status.isSuccess =>
       jsessionDecoder(sessionCookieName).decode(resp, true)
     case resp =>
-      DecodeResult.failure(EntityDecoder.text.decode(resp, true).fold(
+      DecodeResult.failure(textOrXmlDecoder.decode(resp, true).fold(
         (_) => InvalidMessageBodyFailure(s"Decoding $sessionCookieName faile: service returned non-ok status code ${resp.status.code}"),
         (body) => InvalidMessageBodyFailure(s"Decoding $sessionCookieName failed: service returned non-ok status code ${resp.status.code}: $body"))
       )
