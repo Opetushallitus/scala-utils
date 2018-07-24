@@ -2,7 +2,7 @@ package fi.vm.sade.utils.config
 
 import java.io.File
 
-import com.typesafe.config.{ConfigException, ConfigFactory, ConfigValueFactory, Config}
+import com.typesafe.config.{Config, ConfigException, ConfigFactory, ConfigValueFactory}
 import fi.vm.sade.utils.slf4j.Logging
 
 object ApplicationSettingsLoader extends Logging {
@@ -49,7 +49,7 @@ abstract class ApplicationSettings(config: Config) {
     try {
       config.getString(path)
     } catch {
-      case _ :ConfigException.Missing | _ :ConfigException.Null => default
+      case _ :ConfigException.Missing | _ :ConfigException.Null | _ : ConfigException.WrongType => default
     }
   }
 }

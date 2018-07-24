@@ -1,23 +1,23 @@
 package fi.vm.sade.utils.config
 
-import java.io.{File, InputStream, StringReader}
+import java.io.{File, StringReader}
 import java.net.URL
 import java.util.Properties
 
 import com.typesafe.config.ConfigFactory
-import fi.vm.sade.utils.template.TemplateProcessor
+import fi.vm.sade.utils.template.JinjaTemplateProcessor
 
 object ConfigTemplateProcessor {
   def createSettings[T <: ApplicationSettings](projectName: String, attributesFile: String)(implicit applicationSettingsParser: ApplicationSettingsParser[T]): T = {
     val templateURL: URL = new File("src/main/resources/oph-configuration/" + projectName + ".properties.template").toURI.toURL
     val attributesURL = new File(attributesFile).toURI.toURL
 
-    val templatedData = TemplateProcessor.processMustacheWithYamlAttributes(templateURL, attributesURL) + "\nmongodb.ensureIndex=false" // <- to make work with embedded mongo
+    val templatedData = JinjaTemplateProcessor.processJinjaWithYamlAttributes(templateURL, attributesURL) + "\nmongodb.ensureIndex=false" // <- to make work with embedded mongo
     parseTemplatedData(templatedData)
   }
 
   def createSettings[T <: ApplicationSettings](template: URL, attributes: URL)(implicit applicationSettingsParser: ApplicationSettingsParser[T]): T = {
-    val templatedData: String = TemplateProcessor.processMustacheWithYamlAttributes(template, attributes) + "\nmongodb.ensureIndex=false" // <- to make work with embedded mongo
+    val templatedData: String = JinjaTemplateProcessor.processJinjaWithYamlAttributes(template, attributes) + "\nmongodb.ensureIndex=false" // <- to make work with embedded mongo
     parseTemplatedData(templatedData)
   }
 

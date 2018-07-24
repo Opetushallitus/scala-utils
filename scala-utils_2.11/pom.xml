@@ -8,7 +8,7 @@
         <relativePath>..</relativePath>
     </parent>
     <artifactId>scala-utils_2.11</artifactId>
-    <version>0.5.0-SNAPSHOT</version>
+    <version>0.5.1-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>scala-utils_2.11</name>
     <dependencies>
@@ -57,6 +57,11 @@
             <groupId>org.scalatra.scalate</groupId>
             <artifactId>scalate-core_2.11</artifactId>
             <version>1.8.0</version>
+        </dependency>
+        <dependency>
+          <groupId>com.hubspot.jinjava</groupId>
+          <artifactId>jinjava</artifactId>
+          <version>2.4.3</version>
         </dependency>
         <dependency>
             <groupId>org.scalaj</groupId>

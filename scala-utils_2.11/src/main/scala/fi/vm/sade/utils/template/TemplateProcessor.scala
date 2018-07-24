@@ -1,14 +1,13 @@
 package fi.vm.sade.utils.template
 
-import java.io.{InputStream, File, FileInputStream}
+import java.io.File
 import java.net.URL
 import java.util.HashMap
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.`type`.MapType
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
-import org.fusesource.scalate.{TemplateSource, TemplateEngine}
-import org.fusesource.scalate.support.FileTemplateSource
+import org.fusesource.scalate.{TemplateEngine, TemplateSource}
 
 import scala.collection.JavaConverters._
 

@@ -1,8 +1,8 @@
 package fi.vm.sade.utils.config
 
 import java.net.URL
+
 import com.typesafe.config.Config
-import fi.vm.sade.utils.template.TemplateProcessor
 import org.junit.runner.RunWith
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
@@ -22,6 +22,16 @@ class ConfigTemplateProcessorSpec extends Specification {
       implicit val parser = new TestSettingsParser
       val settings: TestSettings = ConfigTemplateProcessor.createSettings(template, vars)
       settings.getStringWithDefault("value", "fail") must_== "abc"
+    }
+
+    "work with default values" in {
+      val template: URL = getClass.getResource("/template/testwithdefaults.properties.template")
+      val vars: URL = getClass.getResource("/template/testwithdefaults.properties.yml")
+      implicit val parser = new TestSettingsParser
+      val settings: TestSettings = ConfigTemplateProcessor.createSettings(template, vars)
+      settings.getStringWithDefault("value", "fail") must_== "abc"
+      settings.getStringWithDefault("value_with.overridden.default", "fail") must_== "This is from YML"
+      settings.getStringWithDefault("value_with.default.in.use", "fail") must_== "Hope you can see this."
     }
   }
 }
