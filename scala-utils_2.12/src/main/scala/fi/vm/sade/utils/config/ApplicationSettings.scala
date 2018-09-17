@@ -19,8 +19,6 @@ object ApplicationSettingsLoader extends Logging {
 
 abstract class ApplicationSettings(config: Config) {
 
-  val environment = Environment(getStringWithDefault("environment", "default"))
-
   def toProperties = {
     import scala.collection.JavaConversions._
 
@@ -38,12 +36,6 @@ abstract class ApplicationSettings(config: Config) {
     parser.parse(config.withoutPath(path))
   }
 
-  protected def getMongoConfig(config: Config) = {
-    MongoConfig(
-      config.getString("uri"),
-      config.getString("dbname")
-    )
-  }
 
   def getStringWithDefault(path: String, default: String) = {
     try {
@@ -57,17 +49,4 @@ abstract class ApplicationSettings(config: Config) {
 trait ApplicationSettingsParser[T <: ApplicationSettings] {
 
   def parse(config: Config): T
-
-}
-
-case class MongoConfig(url: String, dbname: String)
-
-case class Environment(val name: String) {
-  def isLuokka = name == "ophitest"
-  def isVagrant = name == "vagrant"
-  def isReppu = name == "oph"
-  def isProduction = name == "ophprod"
-  def isQA = name == "ophp"
-  def isKoulutus = name == "ophtrain"
-  def isDev = name == "dev"
 }
