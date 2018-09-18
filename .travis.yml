@@ -1,0 +1,32 @@
+sudo: required
+
+language: scala
+
+jdk:
+- oraclejdk8
+
+cache:
+  directories:
+  - $HOME/.m2
+
+env:
+  global:
+  # ARTIFACTORY_USERNAME
+  - secure: "DA9bYPEIAuhiyyef+vTvon8rhlxvFXYYlDMfjwV/6zcurPZBmWPhJkw973JrMmVxEYK8gcuXLEERTSjH/+TRof1iKEDaL5qTRP0Fy40mCs2oxxD6B9jh77LWWf/45K4b50oeoEQT2uDlrSwWlkIhxaON88z7zOLamAGw65g1p+Q="
+  # ARTIFACTORY_PASSWORD
+  - secure: "l82diMJV9x2KzUVgYqBI6umCM6EpcLuR8WwGMWMq1Z631t2ZC9kx82fm51C1BzIQujoqF3eCQdzc4cqEJU1RQIOUl6U3PZUil1COvqjXvjIqDoEM8CHpVi4QtBgqx8BRluQ7B3BvfluhTIaRQbyzez+HNcgN1z84TOpiWAwYhX0="
+
+
+install:
+- git clone https://github.com/Opetushallitus/ci-tools.git
+- source ci-tools/common/setup-tools.sh
+
+script:
+- mvn clean package
+
+deploy:
+  provider: script
+  script: mvn deploy -DskipTests --settings ci-tools/common/maven-settings.xml
+  skip_cleanup: true
+  on:
+    branch: master
