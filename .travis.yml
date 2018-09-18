@@ -22,7 +22,7 @@ install:
 - source ci-tools/common/setup-tools.sh
 
 script:
-- mvn clean package
+- mvn clean package -B
 
 deploy:
   provider: script
