@@ -24,6 +24,7 @@
         <module>scala-cas_2.12</module>
         <module>scala-properties_2.12</module>
         <module>scala-json_2.12</module>
+        <module>scala-user-details_2.11</module>
     </modules>
     <build>
         <plugins>
