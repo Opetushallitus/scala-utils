@@ -7,14 +7,17 @@ import fi.vm.sade.utils.http.DefaultHttpClient
 import scalaj.http.HttpOptions
 
 
-class KayttooikeusUserDetailsService(ophProperties: fi.vm.sade.properties.OphProperties) {
+class KayttooikeusUserDetailsService() {
   import org.json4s._
   implicit val formats = DefaultFormats
 
-  def getUserByUsername(username: String, callerId: String): Either[Throwable, KayttooikeusUserDetails] = {
-    val url = ophProperties.url("kayttooikeus-service.userDetails.byUsername", username)
+  def getUserByUsername(username: String, callerId: String, ophProperties: fi.vm.sade.properties.OphProperties): Either[Throwable, KayttooikeusUserDetails] = {
+    getUserByUsername(username, callerId, ophProperties.getProperty("kayttooikeus-service.userDetails.byUsername", username))
+  }
 
-    fetch(url, callerId) { response =>
+  def getUserByUsername(username: String, callerId: String, userDetailsUrl: String): Either[Throwable, KayttooikeusUserDetails] = {
+
+    fetch(userDetailsUrl, callerId) { response =>
       // response username field contains actually oid because of historical ldap reasons
       val koDto = parse(response).extract[KayttooikeusUserResp]
       KayttooikeusUserDetails(koDto.authorities.map(x => x.authority.replace("ROLE_","")).toList, koDto.username)
