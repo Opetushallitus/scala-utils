@@ -19,7 +19,7 @@ object CasAuthenticatingClient extends Logging {
   def apply(casClient: CasClient,
             casParams: CasParams,
             serviceClient: Client,
-            clientCallerId: Option[String],
+            clientCallerId: String,
             sessionCookieName: String): Client = {
     new CasAuthenticatingClient(casClient, casParams, serviceClient, clientCallerId, sessionCookieName).httpClient
   }
@@ -28,7 +28,7 @@ object CasAuthenticatingClient extends Logging {
 class CasAuthenticatingClient(casClient: CasClient,
                               casParams: CasParams,
                               serviceClient: Client,
-                              clientCallerId: Option[String],
+                              clientCallerId: String,
                               sessionCookieName: String) extends Logging {
   lazy val httpClient = Client(
     open = Service.lift(open),
@@ -49,10 +49,7 @@ class CasAuthenticatingClient(casClient: CasClient,
 
   private def addHeaders(req: Request, session: SessionCookie): Request = {
     val csrf = "CasAuthenticatingClient"
-    var list: ListBuffer[Header] = ListBuffer(headers.Cookie(Cookie(sessionCookieName, session), Cookie("CSRF", csrf)), Header("CSRF", csrf))
-    clientCallerId.foreach { callerId =>
-      list += Header("Caller-Id", callerId)
-    }
+    val list: List[Header] = List(headers.Cookie(Cookie(sessionCookieName, session), Cookie("CSRF", csrf)), Header("CSRF", csrf), Header("Caller-Id", clientCallerId))
     req.putHeaders(list: _*)
   }
 
