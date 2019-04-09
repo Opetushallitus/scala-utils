@@ -8,14 +8,14 @@
         <relativePath>..</relativePath>
     </parent>
     <artifactId>scala-utils_2.12</artifactId>
-    <version>0.6.0-SNAPSHOT</version>
+    <version>0.7.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>scala-utils_2.12</name>
     <dependencies>
         <dependency>
             <groupId>fi.vm.sade</groupId>
             <artifactId>scala-logging_2.12</artifactId>
-            <version>0.6.0-SNAPSHOT</version>
+            <version>0.7.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.scala-lang</groupId>
