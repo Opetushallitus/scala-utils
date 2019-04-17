@@ -92,6 +92,10 @@
                 <version>2.7</version>
                 <executions>
                     <execution>
+                        <id>default-deploy</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
                         <id>deploy</id>
                         <phase>deploy</phase>
                         <goals>
