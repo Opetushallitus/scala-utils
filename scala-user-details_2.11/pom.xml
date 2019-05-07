@@ -5,13 +5,13 @@
     <parent>
         <artifactId>scala-utils</artifactId>
         <groupId>fi.vm.sade</groupId>
-        <version>1.0.1-SNAPSHOT</version>
+        <version>1.0.2-SNAPSHOT</version>
         <relativePath>..</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>scala-user-details_2.11</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.2-SNAPSHOT</version>
     <name>scala-user-details_2.11</name>
     <packaging>jar</packaging>
 
@@ -38,7 +38,7 @@
         <dependency>
             <groupId>fi.vm.sade</groupId>
             <artifactId>scala-utils_2.11</artifactId>
-            <version>1.0.1-SNAPSHOT</version>
+            <version>1.0.2-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.json4s</groupId>
