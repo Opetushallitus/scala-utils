@@ -18,6 +18,7 @@
         <module>scala-ldap-client_2.11</module>
         <module>scala-json_2.11</module>
         <module>scala-captcha_2.11</module>
+        <module>scala-lang_2.11</module>
 
         <module>scala-logging_2.12</module>
         <module>scala-utils_2.12</module>
@@ -25,6 +26,7 @@
         <module>scala-properties_2.12</module>
         <module>scala-json_2.12</module>
         <module>scala-user-details_2.11</module>
+        <module>scala-lang_2.12</module>
     </modules>
     <build>
         <plugins>
