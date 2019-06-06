@@ -11,6 +11,8 @@ import org.http4s.headers.{Location, `Set-Cookie`}
 import scala.xml._
 import scalaz.concurrent.Task
 
+import scala.util.Try
+
 object CasClient {
   type SessionCookie = String
   type Username = String
@@ -46,11 +48,27 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) {
     val serviceUri = resolve(virkailijaLoadBalancerUrl, params.service.securityUri)
 
     for (
-      tgt <- TicketGrantingTicketClient.getTicketGrantingTicket(virkailijaLoadBalancerUrl, client, params);
-      st <- ServiceTicketClient.getServiceTicket(client, serviceUri)(tgt);
+      st <- getServiceTicketWithRetryOnce(params, serviceUri);
       session <- SessionCookieClient.getSessionCookieValue(client, serviceUri, sessionCookieName)(st)
     ) yield {
       session
+    }
+  }
+
+  private def getServiceTicketWithRetryOnce(params: CasParams, serviceUri: TGTUrl): Task[ServiceTicket] = {
+    Try(
+      getServiceTicket(params, serviceUri)
+    ).getOrElse(
+      getServiceTicket(params, serviceUri)
+    )
+  }
+
+  private def getServiceTicket(params: CasParams, serviceUri: TGTUrl): Task[ServiceTicket] = {
+    for (
+      tgt <- TicketGrantingTicketClient.getTicketGrantingTicket(virkailijaLoadBalancerUrl, client, params);
+      st <- ServiceTicketClient.getServiceTicketFromTgt(client, serviceUri)(tgt)
+    ) yield {
+      st
     }
   }
 }
@@ -87,7 +105,7 @@ private[cas] object ServiceTicketValidator {
 private[cas] object ServiceTicketClient {
   import CasClient._
 
-  def getServiceTicket(client: Client, service: Uri)(tgtUrl: TGTUrl) = {
+  def getServiceTicketFromTgt(client: Client, service: Uri)(tgtUrl: TGTUrl) = {
     client.fetchAs[ServiceTicket](POST(tgtUrl, UrlForm("service" -> service.toString())))(stDecoder)
   }
 
