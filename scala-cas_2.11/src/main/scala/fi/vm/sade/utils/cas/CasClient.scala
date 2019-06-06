@@ -26,7 +26,7 @@ object CasClient {
 /**
  *  Facade for establishing sessions with services protected by CAS, and also validating CAS service tickets.
  */
-class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) {
+class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) extends Logging {
   import CasClient._
 
   def this(casServer: String, client: Client) = this(Uri.fromString(casServer).toOption.get, client)
@@ -58,9 +58,10 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) {
   private def getServiceTicketWithRetryOnce(params: CasParams, serviceUri: TGTUrl): Task[ServiceTicket] = {
     Try(
       getServiceTicket(params, serviceUri)
-    ).getOrElse(
+    ).getOrElse {
+      logger.warn("Fetching TGT or ST failed. Retrying once (and only once) in case the error was ephemeral.")
       getServiceTicket(params, serviceUri)
-    )
+    }
   }
 
   private def getServiceTicket(params: CasParams, serviceUri: TGTUrl): Task[ServiceTicket] = {
