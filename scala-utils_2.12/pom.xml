@@ -4,18 +4,18 @@
     <parent>
         <groupId>fi.vm.sade</groupId>
         <artifactId>scala-utils</artifactId>
-        <version>1.0.2-SNAPSHOT</version>
+        <version>1.0.3-SNAPSHOT</version>
         <relativePath>..</relativePath>
     </parent>
     <artifactId>scala-utils_2.12</artifactId>
-    <version>1.0.2-SNAPSHOT</version>
+    <version>1.0.3-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>scala-utils_2.12</name>
     <dependencies>
         <dependency>
             <groupId>fi.vm.sade</groupId>
             <artifactId>scala-logging_2.12</artifactId>
-            <version>1.0.2-SNAPSHOT</version>
+            <version>1.0.3-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.scala-lang</groupId>
