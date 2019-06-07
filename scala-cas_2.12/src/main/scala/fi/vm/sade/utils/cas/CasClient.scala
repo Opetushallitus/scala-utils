@@ -9,8 +9,7 @@ import org.http4s.headers.{Location, `Set-Cookie`}
 
 import scala.xml._
 import scalaz.concurrent.Task
-
-import scala.util.Try
+import scalaz.{-\/, \/-}
 
 object CasClient {
   type SessionCookie = String
@@ -52,11 +51,12 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) extends Logging 
   }
 
   private def getServiceTicketWithRetryOnce(params: CasParams, serviceUri: TGTUrl): Task[ServiceTicket] = {
-    Try(
-      getServiceTicket(params, serviceUri)
-    ).getOrElse {
-      logger.warn("Fetching TGT or ST failed. Retrying once (and only once) in case the error was ephemeral.")
-      getServiceTicket(params, serviceUri)
+    getServiceTicket(params, serviceUri).attempt.flatMap {
+      case \/-(success) =>
+        Task(success)
+      case -\/(throwable) =>
+        logger.warn("Fetching TGT or ST failed. Retrying once (and only once) in case the error was ephemeral.", throwable)
+        getServiceTicket(params, serviceUri)
     }
   }
 
