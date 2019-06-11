@@ -60,7 +60,18 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) extends Logging 
         Task(success)
       case -\/(throwable) =>
         logger.warn("Fetching TGT or ST failed. Retrying once (and only once) in case the error was ephemeral.", throwable)
-        getServiceTicket(params, serviceUri)
+        retryServiceTicket(params, serviceUri)
+    }
+  }
+
+  private def retryServiceTicket(params: CasParams, serviceUri: TGTUrl): Task[ServiceTicket] = {
+    getServiceTicket(params, serviceUri).attempt.map {
+      case \/-(retrySuccess) =>
+        logger.info("Fetching TGT and ST was successful after one retry.")
+        retrySuccess
+      case -\/(retryThrowable) =>
+        logger.error("Fetching TGT or ST failed also after one retry.", retryThrowable)
+        throw retryThrowable
     }
   }
 
