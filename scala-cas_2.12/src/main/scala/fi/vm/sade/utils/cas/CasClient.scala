@@ -2,7 +2,7 @@ package fi.vm.sade.utils.cas
 
 import fi.vm.sade.utils.cas.CasClient._
 import org.http4s.Status.Created
-import org.http4s._
+import org.http4s.{Response, _}
 import org.http4s.client._
 import org.http4s.dsl._
 import org.http4s.headers.{Location, `Set-Cookie`}
@@ -87,18 +87,30 @@ private[cas] object ServiceTicketValidator {
       .withQueryParam("ticket", serviceTicket)
       .withQueryParam("service",service)
 
-    client.fetch(GET(pUri)) {
-      case r if r.status.isSuccess =>
-        r.as[String].map(s => Utility.trim(scala.xml.XML.loadString(s))).map {
-          case <cas:serviceResponse><cas:authenticationSuccess><cas:user>{user}</cas:user></cas:authenticationSuccess></cas:serviceResponse> =>
-            user.text
-          case authenticationFailure =>
-            throw new CasClientException(s"Service Ticket validation response decoding failed at ${service}: response body is of wrong form ($authenticationFailure)")
+    val task = GET(pUri)
+
+    def handler(response: Response): Task[Username] = {
+      response match {
+        case r if r.status.isSuccess =>
+          r.as[String].map(s => Utility.trim(scala.xml.XML.loadString(s))).map {
+            case <cas:serviceResponse>
+              <cas:authenticationSuccess>
+                <cas:user>
+                  {user}
+                  </cas:user>
+                </cas:authenticationSuccess>
+              </cas:serviceResponse> =>
+              user.text
+            case authenticationFailure =>
+              throw new CasClientException(s"Service Ticket validation response decoding failed at ${service}: response body is of wrong form ($authenticationFailure)")
+          }
+        case r => r.as[String].map {
+          case body => throw new CasClientException(s"Decoding username failed at ${pUri}: CAS returned non-ok status code ${r.status.code}: $body")
         }
-      case r => r.as[String].map {
-        case body => throw new CasClientException(s"Decoding username failed at ${pUri}: CAS returned non-ok status code ${r.status.code}: $body")
       }
     }
+
+    FetchHelper.fetch(client, task, handler)
   }
 }
 
@@ -126,24 +138,29 @@ private[cas] object TicketGrantingTicketClient extends Logging {
 
   def getTicketGrantingTicket(virkailijaLoadBalancerUrl: Uri, client: Client, params: CasParams): Task[TGTUrl] = {
     val tgtUri: TGTUrl = resolve(virkailijaLoadBalancerUrl, uri("/cas/v1/tickets"))
-    client.fetch(POST(tgtUri, UrlForm("username" -> params.user.username, "password" -> params.user.password))) {
-      case Created(resp) =>
-        val found: TGTUrl = resp.headers.get(Location).map(_.value) match {
-          case Some(tgtPattern(tgtUrl)) =>
-            Uri.fromString(tgtUrl).fold(
-              (pf: ParseFailure) => throw new CasClientException(pf.message),
-              (tgt) => tgt
-            )
-          case Some(nontgturl) =>
-            throw new CasClientException(s"TGT decoding failed at ${tgtUri}: location header has wrong format $nontgturl")
-          case None =>
-            throw new CasClientException("TGT decoding failed at ${tgtUri}: No location header at")
+    val task = POST(tgtUri, UrlForm("username" -> params.user.username, "password" -> params.user.password))
+
+    def handler(response: Response): Task[TGTUrl] = {
+      response match {
+        case Created(resp) =>
+          val found: TGTUrl = resp.headers.get(Location).map(_.value) match {
+            case Some(tgtPattern(tgtUrl)) =>
+              Uri.fromString(tgtUrl).fold(
+                (pf: ParseFailure) => throw new CasClientException(pf.message),
+                (tgt) => tgt
+              )
+            case Some(nontgturl) =>
+              throw new CasClientException(s"TGT decoding failed at ${tgtUri}: location header has wrong format $nontgturl")
+            case None =>
+              throw new CasClientException("TGT decoding failed at ${tgtUri}: No location header at")
+          }
+          Task.now(found)
+        case r => r.as[String].map { body =>
+          throw new CasClientException(s"TGT decoding failed at ${tgtUri}: invalid TGT creation status: ${r.status.code}: $body")
         }
-        Task.now(found)
-      case r => r.as[String].map { body =>
-        throw new CasClientException(s"TGT decoding failed at ${tgtUri}: invalid TGT creation status: ${r.status.code}: $body")
       }
     }
+    FetchHelper.fetch(client, task, handler)
   }
 }
 
@@ -152,16 +169,32 @@ private[cas] object SessionCookieClient {
 
   def getSessionCookieValue(client: Client, service: Uri, sessionCookieName: String)(serviceTicket: ServiceTicket): Task[SessionCookie] = {
     val sessionIdUri: Uri = service.withQueryParam("ticket", List(serviceTicket)).asInstanceOf[Uri]
-    client.fetch(GET(sessionIdUri)) {
-      case resp if resp.status.isSuccess =>
-        Task.now(resp.headers.collectFirst {
-          case `Set-Cookie`(`Set-Cookie`(cookie)) if cookie.name == sessionCookieName => cookie.content
-        }.getOrElse(throw new CasClientException(s"Decoding $sessionCookieName failed at ${sessionIdUri}: no cookie found for JSESSIONID")))
+    val task = GET(sessionIdUri)
 
-      case r => r.as[String].map { body =>
-        throw new CasClientException(s"Decoding $sessionCookieName failed at ${sessionIdUri}: service returned non-ok status code ${r.status.code}: $body")
+    def handler(response: Response): Task[SessionCookie] = {
+      response match {
+        case resp if resp.status.isSuccess =>
+          Task.now(resp.headers.collectFirst {
+            case `Set-Cookie`(`Set-Cookie`(cookie)) if cookie.name == sessionCookieName => cookie.content
+          }.getOrElse(throw new CasClientException(s"Decoding $sessionCookieName failed at ${sessionIdUri}: no cookie found for JSESSIONID")))
+
+        case r => r.as[String].map { body =>
+          throw new CasClientException(s"Decoding $sessionCookieName failed at ${sessionIdUri}: service returned non-ok status code ${r.status.code}: $body")
+        }
       }
     }
+
+    FetchHelper.fetch(client, task, handler)
+  }
+}
+
+private object FetchHelper {
+  private val callerId = "scala-utils.scala-cas_2.12"
+  private val defaultHeaders: Header = Header("Caller-Id", callerId)
+
+  def fetch[A](client: Client, task: Task[Request], handler: Response => Task[A]): Task[A] = {
+    val taskWithHeaders = task.putHeaders(defaultHeaders)
+    client.fetch(taskWithHeaders)(handler)
   }
 }
 
