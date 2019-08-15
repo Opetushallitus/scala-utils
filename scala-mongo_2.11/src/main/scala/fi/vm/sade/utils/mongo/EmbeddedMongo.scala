@@ -10,7 +10,7 @@ import fi.vm.sade.utils.tcp.{PortChooser, PortChecker}
 
 object EmbeddedMongo extends Logging {
 
-  def start(portChooser: PortChooser) = {
+  def start(portChooser: PortChooser): Option[MongoServer] = {
     if (PortChecker.isFreeLocalPort(portChooser.chosenPort)) {
       logger.info("Starting embedded mongo on port " + portChooser.chosenPort)
       Some(new MongoServer(portChooser.chosenPort))
@@ -20,12 +20,12 @@ object EmbeddedMongo extends Logging {
     }
   }
 
-  def withEmbeddedMongo[T](portChooser: PortChooser)(f: => T) = {
+  def withEmbeddedMongo[T](portChooser: PortChooser)(f: => T): T = {
     val mongoServer = start(portChooser)
     try {
       f
     } finally {
-      mongoServer.foreach(_.stop)
+      mongoServer.foreach(_.stop())
     }
   }
 }
@@ -37,14 +37,14 @@ class MongoServer(val port: Int) {
     .build
   private val runtimeConfig = new RuntimeConfigBuilder()
     .defaults(Command.MongoD)
-    .processOutput(ProcessOutput.getDefaultInstanceSilent())
+    .processOutput(ProcessOutput.getDefaultInstanceSilent)
     .build();
   private val runtime: MongodStarter = MongodStarter.getInstance(runtimeConfig)
   private val mongodExecutable = runtime.prepare(mongodConfig)
   private val mongod = mongodExecutable.start
 
-  def stop {
-    mongod.stop
-    mongodExecutable.stop
+  def stop() {
+    mongod.stop()
+    mongodExecutable.stop()
   }
 }
