@@ -91,8 +91,8 @@ private[cas] object ServiceTicketValidator {
       .withQueryParam("ticket", serviceTicket)
       .withQueryParam("service",service)
 
-    client
-      .fetch(GET(pUri))(decodeUsername)
+    val task = GET(pUri)
+    FetchHelper.fetch(client, task, decodeUsername)
   }
 
   private val serviceTicketDecoder =
@@ -118,7 +118,9 @@ private[cas] object ServiceTicketClient {
   import CasClient._
 
   def getServiceTicketFromTgt(client: Client, service: Uri)(tgtUrl: TGTUrl) = {
-    client.fetchAs[ServiceTicket](POST(tgtUrl, UrlForm("service" -> service.toString())))(stDecoder)
+    val task = POST(tgtUrl, UrlForm("service" -> service.toString()))
+    val handler = stDecoder
+    FetchHelper.fetchAs(client, task, handler)
   }
 
   val stPattern = "(ST-.*)".r
@@ -132,8 +134,8 @@ private[cas] object TicketGrantingTicketClient extends Logging {
   import CasClient.TGTUrl
 
   def getTicketGrantingTicket(virkailijaLoadBalancerUrl: Uri, client: Client, params: CasParams): Task[TGTUrl] = {
-    client
-      .fetch(POST(resolve(virkailijaLoadBalancerUrl, uri("/cas/v1/tickets")), params.user)(casUserEncoder))(decodeTgt)
+    val task = POST(resolve(virkailijaLoadBalancerUrl, uri("/cas/v1/tickets")), params.user)(casUserEncoder)
+    FetchHelper.fetch(client, task, decodeTgt)
   }
 
   private val casUserEncoder = UrlForm.entityEncoder().contramap((user: CasUser) => UrlForm("username" -> user.username, "password" -> user.password))
@@ -171,7 +173,8 @@ private[cas] object SessionCookieClient {
 
   def getSessionCookieValue(client: Client, service: Uri, sessionCookieName: String)(serviceTicket: ServiceTicket): Task[SessionCookie] = {
     val uriWithQueryParam: Uri = service.withQueryParam("ticket", List(serviceTicket)).asInstanceOf[Uri]
-    client.fetch(GET(uriWithQueryParam))(decodeJsession(sessionCookieName, _))
+    val task = GET(uriWithQueryParam)
+    FetchHelper.fetch(client = client, task = task, handler = decodeJsession(sessionCookieName, _))
   }
 
   private def jsessionDecoder(sessionCookieName: String) = EntityDecoder.decodeBy[SessionCookie](MediaRange.`*/*`) { (msg) =>
@@ -191,6 +194,20 @@ private[cas] object SessionCookieClient {
   }.fold(e => throw new CasClientException(e.message), identity)
 }
 
+private object FetchHelper {
+  private val callerId = "scala-utils.scala-cas_2.11"
+  private val defaultHeaders: Header = Header("Caller-Id", callerId)
+
+  def fetch[A](client: Client, task: Task[Request], handler: Response => Task[A]): Task[A] = {
+    val taskWithHeaders = task.putHeaders(defaultHeaders)
+    client.fetch(taskWithHeaders)(handler)
+  }
+
+  def fetchAs[A](client: Client, task: Task[Request], decoder: EntityDecoder[A]): Task[A] = {
+    val taskWithHeaders = task.putHeaders(defaultHeaders)
+    client.fetchAs[A](taskWithHeaders)(decoder)
+  }
+}
 
 
 class CasClientException(message: String) extends RuntimeException(message)
