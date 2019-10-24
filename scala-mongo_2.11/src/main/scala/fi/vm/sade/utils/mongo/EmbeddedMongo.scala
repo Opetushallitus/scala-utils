@@ -1,12 +1,12 @@
 package fi.vm.sade.utils.mongo
 
-import de.flapdoodle.embed.mongo.config.{IMongodConfig, MongoCmdOptionsBuilder, MongodConfigBuilder, Net, RuntimeConfigBuilder}
+import de.flapdoodle.embed.mongo.config.{IMongodConfig, MongodConfigBuilder, Net, RuntimeConfigBuilder}
 import de.flapdoodle.embed.mongo.distribution.Version
 import de.flapdoodle.embed.mongo.{Command, MongodStarter}
 import de.flapdoodle.embed.process.config.io.ProcessOutput
 import de.flapdoodle.embed.process.runtime.Network
 import fi.vm.sade.utils.slf4j.Logging
-import fi.vm.sade.utils.tcp.{PortChecker, PortChooser}
+import fi.vm.sade.utils.tcp.{PortChooser, PortChecker}
 
 object EmbeddedMongo extends Logging {
 
@@ -33,9 +33,6 @@ object EmbeddedMongo extends Logging {
 class MongoServer(val port: Int) {
   private val mongodConfig: IMongodConfig = new MongodConfigBuilder()
     .version(Version.Main.PRODUCTION)
-    .cmdOptions(new MongoCmdOptionsBuilder()
-    		.useStorageEngine("ephemeralForTest")
-    		.build())
     .net(new Net(port, Network.localhostIsIPv6))
     .build
   private val runtimeConfig = new RuntimeConfigBuilder()
