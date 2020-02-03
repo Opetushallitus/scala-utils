@@ -93,13 +93,7 @@ private[cas] object ServiceTicketValidator {
       response match {
         case r if r.status.isSuccess =>
           r.as[String].map(s => Utility.trim(scala.xml.XML.loadString(s))).map {
-            case <cas:serviceResponse>
-              <cas:authenticationSuccess>
-                <cas:user>
-                  {user}
-                  </cas:user>
-                </cas:authenticationSuccess>
-              </cas:serviceResponse> =>
+            case <cas:serviceResponse><cas:authenticationSuccess><cas:user>{user}</cas:user></cas:authenticationSuccess></cas:serviceResponse> =>
               user.text
             case authenticationFailure =>
               throw new CasClientException(s"Service Ticket validation response decoding failed at ${service}: response body is of wrong form ($authenticationFailure)")
