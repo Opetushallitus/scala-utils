@@ -20,7 +20,7 @@
         <dependency>
             <groupId>fi.vm.sade</groupId>
             <artifactId>scala-json_2.11</artifactId>
-            <version>1.3.0-SNAPSHOT</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.scala-lang</groupId>
@@ -39,23 +39,6 @@
            <plugin>
               <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-enforcer-plugin</artifactId>
-              <version>1.4.1</version>
-              <executions>
-                <execution>
-                  <id>enforce-versions</id>
-                  <goals>
-                    <goal>enforce</goal>
-                  </goals>
-                  <configuration>
-                    <rules combine.self="override">
-                      <requireJavaVersion>
-                        <version>[1.8,)</version>
-                      </requireJavaVersion>
-                      <!--<dependencyConvergence/>-->
-                    </rules>
-                  </configuration>
-                </execution>
-              </executions>
             </plugin>
         </plugins>
     </build>
