@@ -20,7 +20,7 @@ class CasAuthenticatingClientIntegrationTest extends FreeSpec with Matchers {
     val virkailijaUser: String = requiredEnv("VIRKAILIJA_USER")
     val virkailijaPassword: String = requiredEnv("VIRKAILIJA_PASSWORD")
 
-    val casClient = new CasClient(virkailijaUrl, blaze.defaultClient)
+    val casClient = new CasClient(virkailijaUrl, blaze.defaultClient, "my-caller-id")
     val casAuthenticatingClient = CasAuthenticatingClient(
       casClient,
       CasParams("/authentication-service", virkailijaUser, virkailijaPassword),
