@@ -74,7 +74,7 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client, callerId: String
   private def getServiceTicket(params: CasParams, serviceUri: TGTUrl): Task[ServiceTicket] = {
     for (
       tgt <- TicketGrantingTicketClient.getTicketGrantingTicket(virkailijaLoadBalancerUrl, client, params, callerId);
-      st <- ServiceTicketClient.getServiceTicketFromTgt(client, serviceUri)(tgt)
+      st <- ServiceTicketClient.getServiceTicketFromTgt(client, serviceUri, callerId)(tgt)
     ) yield {
       st
     }
@@ -111,16 +111,21 @@ private[cas] object ServiceTicketValidator {
 private[cas] object ServiceTicketClient {
   import CasClient._
 
-  def getServiceTicketFromTgt(client: Client, service: Uri)(tgtUrl: TGTUrl): Task[ServiceTicket] = {
-    client.fetch[ServiceTicket](POST(tgtUrl, UrlForm("service" -> service.toString()))) {
-      case r if r.status.isSuccess => r.as[String].map {
-        case stPattern(st) => st
-        case nonSt => throw new CasClientException(s"Service Ticket decoding failed at ${tgtUrl}: response body is of wrong form ($nonSt)")
-      }
-      case r => r.as[String].map {
-        case body => throw new CasClientException(s"Service Ticket decoding failed at ${tgtUrl}: unexpected status ${r.status.code}: $body")
+  def getServiceTicketFromTgt(client: Client, service: Uri, callerId: String)(tgtUrl: TGTUrl): Task[ServiceTicket] = {
+    val task = POST(tgtUrl, UrlForm("service" -> service.toString()))
+
+    def handler(response: Response): Task[ServiceTicket] = {
+      response match {
+        case r if r.status.isSuccess => r.as[String].map {
+          case stPattern(st) => st
+          case nonSt => throw new CasClientException(s"Service Ticket decoding failed at ${tgtUrl}: response body is of wrong form ($nonSt)")
+        }
+        case r => r.as[String].map {
+          case body => throw new CasClientException(s"Service Ticket decoding failed at ${tgtUrl}: unexpected status ${r.status.code}: $body")
+        }
       }
     }
+    FetchHelper.fetch(client, callerId, task, handler)
   }
 
   val stPattern = "(ST-.*)".r
