@@ -37,6 +37,7 @@ class MongoServer(val port: Int) {
     		.useStorageEngine("ephemeralForTest")
     		.build())
     .net(new Net(port, Network.localhostIsIPv6))
+    .setParameter("maxBSONDepth", "1000")
     .build
   private val runtimeConfig = new RuntimeConfigBuilder()
     .defaults(Command.MongoD)
