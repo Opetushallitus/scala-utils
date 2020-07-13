@@ -15,7 +15,7 @@ class CasClientSmokeTest extends FreeSpec with Matchers {
 
   "CasClient fetch session should fail with correct (inner) exception instead of some functional problem" in {
     val virkailijaUrl = "http://localhost:" + PortChecker.findFreeLocalPort()
-    val casClient = new CasClient(virkailijaUrl, blaze.defaultClient)
+    val casClient = new CasClient(virkailijaUrl, blaze.defaultClient, "my-caller-id")
 
     val result: Try[SessionCookie] = Try(casClient.fetchCasSession(params).unsafePerformSync)
 

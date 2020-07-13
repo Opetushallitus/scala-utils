@@ -25,13 +25,13 @@ object CasClient {
 /**
  *  Facade for establishing sessions with services protected by CAS, and also validating CAS service tickets.
  */
-class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) extends Logging {
+class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client, callerId: String) extends Logging {
   import CasClient._
 
-  def this(casServer: String, client: Client) = this(Uri.fromString(casServer).toOption.get, client)
+  def this(casServer: String, client: Client, callerId: String) = this(Uri.fromString(casServer).toOption.get, client, callerId)
 
   def validateServiceTicket(service: String)(serviceTicket: ServiceTicket): Task[Username] = {
-    ServiceTicketValidator.validateServiceTicket(virkailijaLoadBalancerUrl, client, service)(serviceTicket)
+    ServiceTicketValidator.validateServiceTicket(virkailijaLoadBalancerUrl, client, callerId, service)(serviceTicket)
   }
 
   /**
@@ -48,7 +48,7 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) extends Logging 
 
     for (
       st <- getServiceTicketWithRetryOnce(params, serviceUri);
-      session <- SessionCookieClient.getSessionCookieValue(client, serviceUri, sessionCookieName)(st)
+      session <- SessionCookieClient.getSessionCookieValue(client, serviceUri, sessionCookieName, callerId)(st)
     ) yield {
       session
     }
@@ -60,11 +60,11 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) extends Logging 
         Task(success)
       case -\/(throwable) =>
         logger.warn("Fetching TGT or ST failed. Retrying once (and only once) in case the error was ephemeral.", throwable)
-        retryServiceTicket(params, serviceUri)
+        retryServiceTicket(params, serviceUri, callerId)
     }
   }
 
-  private def retryServiceTicket(params: CasParams, serviceUri: TGTUrl): Task[ServiceTicket] = {
+  private def retryServiceTicket(params: CasParams, serviceUri: TGTUrl, callerId: String): Task[ServiceTicket] = {
     getServiceTicket(params, serviceUri).attempt.map {
       case \/-(retrySuccess) =>
         logger.info("Fetching TGT and ST was successful after one retry.")
@@ -77,8 +77,8 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) extends Logging 
 
   private def getServiceTicket(params: CasParams, serviceUri: TGTUrl): Task[ServiceTicket] = {
     for (
-      tgt <- TicketGrantingTicketClient.getTicketGrantingTicket(virkailijaLoadBalancerUrl, client, params);
-      st <- ServiceTicketClient.getServiceTicketFromTgt(client, serviceUri)(tgt)
+      tgt <- TicketGrantingTicketClient.getTicketGrantingTicket(virkailijaLoadBalancerUrl, client, params, callerId);
+      st <- ServiceTicketClient.getServiceTicketFromTgt(client, serviceUri, callerId)(tgt)
     ) yield {
       st
     }
@@ -86,13 +86,13 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client) extends Logging 
 }
 
 private[cas] object ServiceTicketValidator {
-  def validateServiceTicket(virkailijaLoadBalancerUrl: Uri, client: Client, service: String)(serviceTicket: ServiceTicket): Task[Username] = {
+  def validateServiceTicket(virkailijaLoadBalancerUrl: Uri, client: Client, callerId: String, service: String)(serviceTicket: ServiceTicket): Task[Username] = {
     val pUri: Uri = resolve(virkailijaLoadBalancerUrl, uri("/cas/serviceValidate"))
       .withQueryParam("ticket", serviceTicket)
       .withQueryParam("service",service)
 
     val task = GET(pUri)
-    FetchHelper.fetch(client, task, decodeUsername)
+    FetchHelper.fetch(client, callerId: String, task, decodeUsername)
   }
 
   private val serviceTicketDecoder =
@@ -117,10 +117,10 @@ private[cas] object ServiceTicketValidator {
 private[cas] object ServiceTicketClient {
   import CasClient._
 
-  def getServiceTicketFromTgt(client: Client, service: Uri)(tgtUrl: TGTUrl) = {
+  def getServiceTicketFromTgt(client: Client, service: Uri, callerId: String)(tgtUrl: TGTUrl) = {
     val task = POST(tgtUrl, UrlForm("service" -> service.toString()))
     val handler = stDecoder
-    FetchHelper.fetchAs(client, task, handler)
+    FetchHelper.fetchAs(client, callerId, task, handler)
   }
 
   val stPattern = "(ST-.*)".r
@@ -133,9 +133,9 @@ private[cas] object ServiceTicketClient {
 private[cas] object TicketGrantingTicketClient extends Logging {
   import CasClient.TGTUrl
 
-  def getTicketGrantingTicket(virkailijaLoadBalancerUrl: Uri, client: Client, params: CasParams): Task[TGTUrl] = {
+  def getTicketGrantingTicket(virkailijaLoadBalancerUrl: Uri, client: Client, params: CasParams, callerId: String): Task[TGTUrl] = {
     val task = POST(resolve(virkailijaLoadBalancerUrl, uri("/cas/v1/tickets")), params.user)(casUserEncoder)
-    FetchHelper.fetch(client, task, decodeTgt)
+    FetchHelper.fetch(client, callerId, task, decodeTgt)
   }
 
   private val casUserEncoder = UrlForm.entityEncoder().contramap((user: CasUser) => UrlForm("username" -> user.username, "password" -> user.password))
@@ -171,10 +171,10 @@ private[cas] object TicketGrantingTicketClient extends Logging {
 private[cas] object SessionCookieClient {
   import CasClient._
 
-  def getSessionCookieValue(client: Client, service: Uri, sessionCookieName: String)(serviceTicket: ServiceTicket): Task[SessionCookie] = {
+  def getSessionCookieValue(client: Client, service: Uri, sessionCookieName: String, callerId: String)(serviceTicket: ServiceTicket): Task[SessionCookie] = {
     val uriWithQueryParam: Uri = service.withQueryParam("ticket", List(serviceTicket)).asInstanceOf[Uri]
     val task = GET(uriWithQueryParam)
-    FetchHelper.fetch(client = client, task = task, handler = decodeJsession(sessionCookieName, _))
+    FetchHelper.fetch(client = client, callerId = callerId, task = task, handler = decodeJsession(sessionCookieName, _))
   }
 
   private def jsessionDecoder(sessionCookieName: String) = EntityDecoder.decodeBy[SessionCookie](MediaRange.`*/*`) { (msg) =>
@@ -195,16 +195,15 @@ private[cas] object SessionCookieClient {
 }
 
 private object FetchHelper {
-  private val callerId = "scala-utils.scala-cas_2.11"
-  private val defaultHeaders: Header = Header("Caller-Id", callerId)
+  private def defaultHeaders(callerId: String) : Header = Header("Caller-Id", callerId)
 
-  def fetch[A](client: Client, task: Task[Request], handler: Response => Task[A]): Task[A] = {
-    val taskWithHeaders = task.putHeaders(defaultHeaders)
+  def fetch[A](client: Client, callerId: String, task: Task[Request], handler: Response => Task[A]): Task[A] = {
+    val taskWithHeaders = task.putHeaders(defaultHeaders(callerId))
     client.fetch(taskWithHeaders)(handler)
   }
 
-  def fetchAs[A](client: Client, task: Task[Request], decoder: EntityDecoder[A]): Task[A] = {
-    val taskWithHeaders = task.putHeaders(defaultHeaders)
+  def fetchAs[A](client: Client, callerId: String, task: Task[Request], decoder: EntityDecoder[A]): Task[A] = {
+    val taskWithHeaders = task.putHeaders(defaultHeaders(callerId))
     client.fetchAs[A](taskWithHeaders)(decoder)
   }
 }
