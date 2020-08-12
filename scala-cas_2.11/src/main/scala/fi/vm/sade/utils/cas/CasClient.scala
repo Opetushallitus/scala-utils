@@ -87,7 +87,7 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client, callerId: String
 
 private[cas] object ServiceTicketValidator {
   def validateServiceTicket(virkailijaLoadBalancerUrl: Uri, client: Client, callerId: String, service: String)(serviceTicket: ServiceTicket): Task[Username] = {
-    val pUri: Uri = resolve(virkailijaLoadBalancerUrl, uri("/cas/serviceValidate"))
+    val pUri: Uri = virkailijaLoadBalancerUrl.withPath(virkailijaLoadBalancerUrl.path + "/serviceValidate")
       .withQueryParam("ticket", serviceTicket)
       .withQueryParam("service",service)
 
@@ -134,7 +134,7 @@ private[cas] object TicketGrantingTicketClient extends Logging {
   import CasClient.TGTUrl
 
   def getTicketGrantingTicket(virkailijaLoadBalancerUrl: Uri, client: Client, params: CasParams, callerId: String): Task[TGTUrl] = {
-    val task = POST(resolve(virkailijaLoadBalancerUrl, uri("/cas/v1/tickets")), params.user)(casUserEncoder)
+    val task = POST(virkailijaLoadBalancerUrl.withPath(virkailijaLoadBalancerUrl.path + "/v1/tickets"), params.user)(casUserEncoder)
     FetchHelper.fetch(client, callerId, task, decodeTgt)
   }
 

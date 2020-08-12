@@ -60,8 +60,10 @@ class CasAuthenticatingClient(casClient: CasClient,
     }
   }
 
-  private def isRedirectToLogin(resp: Response): Boolean =
-    resp.status.code == Status.Found.code && resp.headers.get(Location).exists(_.value.contains("/cas/login"))
+  private def isRedirectToLogin(resp: Response): Boolean = {
+    resp.status.code == Status.Found.code &&
+      resp.headers.get(Location).exists(t => t.value.contains("/cas/login") || t.value.contains("/cas-oppija/login"))
+  }
 
   private def sessionExpired(resp: Response): Boolean = {
     isRedirectToLogin(resp) || resp.status.code == Status.Unauthorized.code
