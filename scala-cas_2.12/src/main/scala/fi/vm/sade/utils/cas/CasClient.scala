@@ -21,13 +21,13 @@ object CasClient {
 /**
  *  Facade for establishing sessions with services protected by CAS, and also validating CAS service tickets.
  */
-class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client, callerId: String) extends Logging {
+class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Logging {
   import CasClient._
 
   def this(casServer: String, client: Client, callerId: String) = this(Uri.fromString(casServer).toOption.get, client, callerId)
 
   def validateServiceTicket(service: String)(serviceTicket: ServiceTicket): Task[Username] = {
-    ServiceTicketValidator.validateServiceTicket(virkailijaLoadBalancerUrl, client, callerId, service)(serviceTicket)
+    ServiceTicketValidator.validateServiceTicket(casBaseUrl, client, callerId, service)(serviceTicket)
   }
 
   /**
@@ -40,7 +40,7 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client, callerId: String
    *  Returns the session that can be used for communications later.
    */
   def fetchCasSession(params: CasParams, sessionCookieName: String = "JSESSIONID"): Task[SessionCookie] = {
-    val serviceUri = resolve(virkailijaLoadBalancerUrl, params.service.securityUri)
+    val serviceUri = resolve(casBaseUrl, params.service.securityUri)
 
     for (
       st <- getServiceTicketWithRetryOnce(params, serviceUri);
@@ -73,7 +73,7 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client, callerId: String
 
   private def getServiceTicket(params: CasParams, serviceUri: TGTUrl): Task[ServiceTicket] = {
     for (
-      tgt <- TicketGrantingTicketClient.getTicketGrantingTicket(virkailijaLoadBalancerUrl, client, params, callerId);
+      tgt <- TicketGrantingTicketClient.getTicketGrantingTicket(casBaseUrl, client, params, callerId);
       st <- ServiceTicketClient.getServiceTicketFromTgt(client, serviceUri, callerId)(tgt)
     ) yield {
       st
@@ -82,8 +82,8 @@ class CasClient(virkailijaLoadBalancerUrl: Uri, client: Client, callerId: String
 }
 
 private[cas] object ServiceTicketValidator {
-  def validateServiceTicket(virkailijaLoadBalancerUrl: Uri, client: Client, callerId: String, service: String)(serviceTicket: ServiceTicket): Task[Username] = {
-    val pUri: Uri = resolve(virkailijaLoadBalancerUrl, uri("/cas/serviceValidate"))
+  def validateServiceTicket(casBaseUrl: Uri, client: Client, callerId: String, service: String)(serviceTicket: ServiceTicket): Task[Username] = {
+    val pUri: Uri = casBaseUrl.withPath(casBaseUrl.path + "/serviceValidate")
       .withQueryParam("ticket", serviceTicket)
       .withQueryParam("service",service)
 
@@ -135,8 +135,8 @@ private[cas] object TicketGrantingTicketClient extends Logging {
   import CasClient.TGTUrl
   val tgtPattern = "(.*TGT-.*)".r
 
-  def getTicketGrantingTicket(virkailijaLoadBalancerUrl: Uri, client: Client, params: CasParams, callerId: String): Task[TGTUrl] = {
-    val tgtUri: TGTUrl = resolve(virkailijaLoadBalancerUrl, uri("/cas/v1/tickets"))
+  def getTicketGrantingTicket(casBaseUrl: Uri, client: Client, params: CasParams, callerId: String): Task[TGTUrl] = {
+    val tgtUri: TGTUrl = casBaseUrl.withPath(casBaseUrl.path + "/v1/tickets")
     val task = POST(tgtUri, UrlForm("username" -> params.user.username, "password" -> params.user.password))
 
     def handler(response: Response): Task[TGTUrl] = {
