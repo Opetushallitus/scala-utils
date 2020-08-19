@@ -95,7 +95,7 @@ class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Loggi
     }
   }
 
-  private val oppijaServiceTicketDecoder = textOrXmlDecoder
+  private val oppijaServiceTicketDecoder: EntityDecoder[OppijaAttributes] = textOrXmlDecoder
     .map(s => Utility.trim(scala.xml.XML.loadString(s)))
     .flatMapR[OppijaAttributes] { serviceResponse =>
       Try {
@@ -110,11 +110,11 @@ class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Loggi
       }
     }
 
-  private val virkailijaServiceTicketDecoder = textOrXmlDecoder
+  private val virkailijaServiceTicketDecoder: EntityDecoder[Username] = textOrXmlDecoder
     .map(s => Utility.trim(scala.xml.XML.loadString(s)))
     .flatMapR[Username] {
       case <cas:serviceResponse><cas:authenticationSuccess><cas:user>{user}</cas:user></cas:authenticationSuccess></cas:serviceResponse> => DecodeResult.success(user.text)
-      case authenticationFailure => DecodeResult.failure(InvalidMessageBodyFailure(s"Service Ticket validation response decoding failed: response body is of wrong form ($authenticationFailure)"))
+      case authenticationFailure => DecodeResult.failure(InvalidMessageBodyFailure(s"Virkailija Service Ticket validation response decoding failed: response body is of wrong form ($authenticationFailure)"))
     }
 
   private val casFailure = (debugLabel: String, resp: Response) => {
@@ -126,7 +126,7 @@ class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Loggi
   }
 
   /**
-   * Decode CAS Oppija's service ticket validation response to vareious oppija attributes.
+   * Decode CAS Oppija's service ticket validation response to various oppija attributes.
    */
   def decodeOppijaAttributes: (Response) => Task[OppijaAttributes] = { response =>
     decodeCASResponse[OppijaAttributes](response, "oppija attributes", oppijaServiceTicketDecoder)
