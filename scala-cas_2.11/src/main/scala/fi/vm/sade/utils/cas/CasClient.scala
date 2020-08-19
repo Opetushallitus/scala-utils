@@ -11,6 +11,8 @@ import scala.xml._
 import scalaz.concurrent.Task
 import scalaz.{-\/, \/-}
 
+import scala.util.{Failure, Success, Try}
+
 object CasClient {
   type SessionCookie = String
   type Username = String
@@ -96,13 +98,16 @@ class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Loggi
   private val oppijaServiceTicketDecoder = textOrXmlDecoder
     .map(s => Utility.trim(scala.xml.XML.loadString(s)))
     .flatMapR[OppijaAttributes] { serviceResponse =>
-      val authenticationSuccess: NodeSeq = (serviceResponse \ "authenticationSuccess")
-      val user: String = (authenticationSuccess \ "user").text
-      val attributes: NodeSeq = (authenticationSuccess \ "attributes")
+      Try {
+        val attributes: NodeSeq = (serviceResponse \ "authenticationSuccess" \ "attributes")
 
-      DecodeResult.success(List("mail", "clientName", "displayName", "givenName", "personOid", "personName", "firstName", "nationalIdentificationNumber")
-        .map(key => (key, (attributes \ key).text))
-        .toMap)
+        List("mail", "clientName", "displayName", "givenName", "personOid", "personName", "firstName", "nationalIdentificationNumber")
+          .map(key => (key, (attributes \ key).text))
+          .toMap
+      } match {
+        case Success(decoded) => DecodeResult.success(decoded)
+        case Failure(ex) => DecodeResult.failure(InvalidMessageBodyFailure("Oppija Service Ticket validation response decoding failed: Failed to parse required values from response body", Some(ex)))
+      }
     }
 
   private val virkailijaServiceTicketDecoder = textOrXmlDecoder
