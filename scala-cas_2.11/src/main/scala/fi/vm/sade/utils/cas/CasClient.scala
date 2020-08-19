@@ -1,6 +1,5 @@
 package fi.vm.sade.utils.cas
 
-import fi.vm.sade.utils.cas.CasClient._
 import org.http4s.EntityDecoder.collectBinary
 import org.http4s.Status.Created
 import org.http4s._
@@ -15,6 +14,7 @@ import scalaz.{-\/, \/-}
 object CasClient {
   type SessionCookie = String
   type Username = String
+  type OppijaAttributes = Map[String, String]
   type TGTUrl = Uri
   type ServiceTicket = String
   val textOrXmlDecoder = EntityDecoder.decodeBy(MediaRange.`text/*`, MediaType.`application/xml`)(msg =>
@@ -30,8 +30,17 @@ class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Loggi
 
   def this(casServer: String, client: Client, callerId: String) = this(Uri.fromString(casServer).toOption.get, client, callerId)
 
-  def validateServiceTicket(service: String)(serviceTicket: ServiceTicket): Task[Username] = {
-    ServiceTicketValidator.validateServiceTicket(casBaseUrl, client, callerId, service)(serviceTicket)
+  def validateServiceTicket[R](service: String)(serviceTicket: ServiceTicket, responseHandler: Response => Task[R]): Task[R] = {
+    validateServiceTicket[R](casBaseUrl, client, callerId, service, responseHandler)(serviceTicket)
+  }
+
+  private def validateServiceTicket[R](casBaseUrl: Uri, client: Client, callerId: String, service: String, responseHandler: Response => Task[R])(serviceTicket: ServiceTicket): Task[R] = {
+    val pUri: Uri = casBaseUrl.withPath(casBaseUrl.path + "/serviceValidate")
+      .withQueryParam("ticket", serviceTicket)
+      .withQueryParam("service",service)
+
+    val task = GET(pUri)
+    FetchHelper.fetch[R](client, callerId: String, task, responseHandler)
   }
 
   /**
@@ -83,34 +92,54 @@ class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Loggi
       st
     }
   }
-}
 
-private[cas] object ServiceTicketValidator {
-  def validateServiceTicket(casBaseUrl: Uri, client: Client, callerId: String, service: String)(serviceTicket: ServiceTicket): Task[Username] = {
-    val pUri: Uri = casBaseUrl.withPath(casBaseUrl.path + "/serviceValidate")
-      .withQueryParam("ticket", serviceTicket)
-      .withQueryParam("service",service)
+  private val oppijaServiceTicketDecoder = textOrXmlDecoder
+    .map(s => Utility.trim(scala.xml.XML.loadString(s)))
+    .flatMapR[OppijaAttributes] { serviceResponse =>
+      val authenticationSuccess: NodeSeq = (serviceResponse \ "authenticationSuccess")
+      val user: String = (authenticationSuccess \ "user").text
+      val attributes: NodeSeq = (authenticationSuccess \ "attributes")
 
-    val task = GET(pUri)
-    FetchHelper.fetch(client, callerId: String, task, decodeUsername)
-  }
+      DecodeResult.success(List("mail", "clientName", "displayName", "givenName", "personOid", "personName", "firstName", "nationalIdentificationNumber")
+        .map(key => (key, (attributes \ key).text))
+        .toMap)
+    }
 
-  private val serviceTicketDecoder =
-    textOrXmlDecoder.map(s => Utility.trim(scala.xml.XML.loadString(s))).flatMapR[Username] {
+  private val virkailijaServiceTicketDecoder = textOrXmlDecoder
+    .map(s => Utility.trim(scala.xml.XML.loadString(s)))
+    .flatMapR[Username] {
       case <cas:serviceResponse><cas:authenticationSuccess><cas:user>{user}</cas:user></cas:authenticationSuccess></cas:serviceResponse> => DecodeResult.success(user.text)
       case authenticationFailure => DecodeResult.failure(InvalidMessageBodyFailure(s"Service Ticket validation response decoding failed: response body is of wrong form ($authenticationFailure)"))
     }
 
-  private def decodeUsername(response: Response) = {
-    DecodeResult.success(response).flatMap[Username] {
-      case resp if resp.status.isSuccess =>
-        serviceTicketDecoder.decode(resp, true)
-      case resp =>
-        DecodeResult.failure(textOrXmlDecoder.decode(resp, true).fold(
-          (_) => InvalidMessageBodyFailure(s"Decoding username failed: CAS returned non-ok status code ${resp.status.code}"),
-          (body) => InvalidMessageBodyFailure(s"Decoding username failed: CAS returned non-ok status code ${resp.status.code}: $body"))
-        )
-    }.fold(e => throw new CasClientException(e.message), identity)
+  private val casFailure = (debugLabel: String, resp: Response) => {
+    textOrXmlDecoder
+      .decode(resp, true)
+      .fold(
+        (_) => InvalidMessageBodyFailure(s"Decoding $debugLabel failed: CAS returned non-ok status code ${resp.status.code}"),
+        (body) => InvalidMessageBodyFailure(s"Decoding $debugLabel failed: CAS returned non-ok status code ${resp.status.code}: $body"))
+  }
+
+  /**
+   * Decode CAS Oppija's service ticket validation response to vareious oppija attributes.
+   */
+  def decodeOppijaAttributes: (Response) => Task[OppijaAttributes] = { response =>
+    decodeCASResponse[OppijaAttributes](response, "oppija attributes", oppijaServiceTicketDecoder)
+  }
+
+  /**
+   * Decode CAS Virkailija's service ticket validation response to username.
+   */
+  def decodeVirkailijaUsername: (Response) => Task[Username] = { response =>
+    decodeCASResponse[Username](response, "username", virkailijaServiceTicketDecoder)
+  }
+
+  private def decodeCASResponse[R](response: Response, debugLabel: String, decoder: EntityDecoder[R]): Task[R] = {
+    DecodeResult.success(response)
+      .flatMap[R] {
+        case resp if resp.status.isSuccess => decoder.decode(resp, true)
+        case resp                          => DecodeResult.failure(casFailure.apply(debugLabel, resp))
+      }.fold(e => throw new CasClientException(e.message), identity)
   }
 }
 
