@@ -18,7 +18,7 @@ trait CaptchaServiceComponent {
         true
       }
       else {
-        val recaptchaCheckRequest = DefaultHttpClient.httpGet(settings.recaptchaUrl + "?secret=" + settings.recaptchaSecret + "&response=" + captcha)
+        val recaptchaCheckRequest = DefaultHttpClient.httpGet(settings.recaptchaUrl + "?secret=" + settings.recaptchaSecret + "&response=" + captcha)(settings.recaptchaCallerId)
 
         recaptchaCheckRequest.responseWithHeaders() match {
           case (200, _, result) => {
