@@ -101,7 +101,8 @@ class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Loggi
       Try {
         val attributes: NodeSeq = (serviceResponse \ "authenticationSuccess" \ "attributes")
 
-        List("mail", "clientName", "displayName", "givenName", "personOid", "personName", "firstName", "nationalIdentificationNumber")
+        List("mail", "clientName", "displayName", "givenName", "personOid", "personName", "firstName", "nationalIdentificationNumber",
+          "impersonatorNationalIdentificationNumber", "impersonatorDisplayName")
           .map(key => (key, (attributes \ key).text))
           .toMap
       } match {
