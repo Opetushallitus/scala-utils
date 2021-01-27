@@ -1,6 +1,6 @@
 package fi.vm.sade.utils.cas
 
-import fi.vm.sade.utils.cas.CasClient._
+import org.http4s.EntityDecoder.collectBinary
 import org.http4s.Status.Created
 import org.http4s.{Response, _}
 import org.http4s.client._
@@ -11,11 +11,17 @@ import scala.xml._
 import scalaz.concurrent.Task
 import scalaz.{-\/, \/-}
 
+import scala.util.{Failure, Success, Try}
+
 object CasClient {
   type SessionCookie = String
   type Username = String
+  type OppijaAttributes = Map[String, String]
   type TGTUrl = Uri
   type ServiceTicket = String
+  val textOrXmlDecoder = EntityDecoder.decodeBy(MediaRange.`text/*`, MediaType.`application/xml`)(msg =>
+    collectBinary(msg).map(bs => new String(bs.toArray, msg.charset.getOrElse(DefaultCharset).nioCharset))
+  )
 }
 
 /**
@@ -26,8 +32,21 @@ class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Loggi
 
   def this(casServer: String, client: Client, callerId: String) = this(Uri.fromString(casServer).toOption.get, client, callerId)
 
-  def validateServiceTicket(service: String)(serviceTicket: ServiceTicket): Task[Username] = {
-    ServiceTicketValidator.validateServiceTicket(casBaseUrl, client, callerId, service)(serviceTicket)
+  def validateServiceTicketWithOppijaAttributes(service: String)(serviceTicket: ServiceTicket): Task[OppijaAttributes] = {
+    validateServiceTicket[OppijaAttributes](casBaseUrl, client, callerId, service, decodeOppijaAttributes)(serviceTicket)
+  }
+
+  def validateServiceTicket[R](service: String)(serviceTicket: ServiceTicket, responseHandler: Response => Task[R]): Task[R] = {
+    validateServiceTicket[R](casBaseUrl, client, callerId, service, responseHandler)(serviceTicket)
+  }
+
+  private def validateServiceTicket[R](casBaseUrl: Uri, client: Client, callerId: String, service: String, responseHandler: Response => Task[R])(serviceTicket: ServiceTicket): Task[R] = {
+    val pUri: Uri = casBaseUrl.withPath(casBaseUrl.path + "/serviceValidate")
+      .withQueryParam("ticket", serviceTicket)
+      .withQueryParam("service",service)
+
+    val task = GET(pUri)
+    FetchHelper.fetch[R](client, callerId: String, task, responseHandler)
   }
 
   /**
@@ -56,11 +75,11 @@ class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Loggi
         Task(success)
       case -\/(throwable) =>
         logger.warn("Fetching TGT or ST failed. Retrying once (and only once) in case the error was ephemeral.", throwable)
-        retryServiceTicket(params, serviceUri)
+        retryServiceTicket(params, serviceUri, callerId)
     }
   }
 
-  private def retryServiceTicket(params: CasParams, serviceUri: TGTUrl): Task[ServiceTicket] = {
+  private def retryServiceTicket(params: CasParams, serviceUri: TGTUrl, callerId: String): Task[ServiceTicket] = {
     getServiceTicket(params, serviceUri).attempt.map {
       case \/-(retrySuccess) =>
         logger.info("Fetching TGT and ST was successful after one retry.")
@@ -79,32 +98,58 @@ class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Loggi
       st
     }
   }
-}
 
-private[cas] object ServiceTicketValidator {
-  def validateServiceTicket(casBaseUrl: Uri, client: Client, callerId: String, service: String)(serviceTicket: ServiceTicket): Task[Username] = {
-    val pUri: Uri = casBaseUrl.withPath(casBaseUrl.path + "/serviceValidate")
-      .withQueryParam("ticket", serviceTicket)
-      .withQueryParam("service",service)
+  private val oppijaServiceTicketDecoder: EntityDecoder[OppijaAttributes] = textOrXmlDecoder
+    .map(s => Utility.trim(scala.xml.XML.loadString(s)))
+    .flatMapR[OppijaAttributes] { serviceResponse =>
+      Try {
+        val attributes: NodeSeq = (serviceResponse \ "authenticationSuccess" \ "attributes")
 
-    val task = GET(pUri)
-
-    def handler(response: Response): Task[Username] = {
-      response match {
-        case r if r.status.isSuccess =>
-          r.as[String].map(s => Utility.trim(scala.xml.XML.loadString(s))).map {
-            case <cas:serviceResponse><cas:authenticationSuccess><cas:user>{user}</cas:user></cas:authenticationSuccess></cas:serviceResponse> =>
-              user.text
-            case authenticationFailure =>
-              throw new CasClientException(s"Service Ticket validation response decoding failed at ${service}: response body is of wrong form ($authenticationFailure)")
-          }
-        case r => r.as[String].map {
-          case body => throw new CasClientException(s"Decoding username failed at ${pUri}: CAS returned non-ok status code ${r.status.code}: $body")
-        }
+        List("mail", "clientName", "displayName", "givenName", "personOid", "personName", "firstName", "nationalIdentificationNumber",
+          "impersonatorNationalIdentificationNumber", "impersonatorDisplayName")
+          .map(key => (key, (attributes \ key).text))
+          .toMap
+      } match {
+        case Success(decoded) => DecodeResult.success(decoded)
+        case Failure(ex) => DecodeResult.failure(InvalidMessageBodyFailure("Oppija Service Ticket validation response decoding failed: Failed to parse required values from response body", Some(ex)))
       }
     }
 
-    FetchHelper.fetch(client, callerId, task, handler)
+  private val virkailijaServiceTicketDecoder: EntityDecoder[Username] = textOrXmlDecoder
+    .map(s => Utility.trim(scala.xml.XML.loadString(s)))
+    .flatMapR[Username] {
+      case <cas:serviceResponse><cas:authenticationSuccess><cas:user>{user}</cas:user></cas:authenticationSuccess></cas:serviceResponse> => DecodeResult.success(user.text)
+      case authenticationFailure => DecodeResult.failure(InvalidMessageBodyFailure(s"Virkailija Service Ticket validation response decoding failed: response body is of wrong form ($authenticationFailure)"))
+    }
+
+  private val casFailure = (debugLabel: String, resp: Response) => {
+    textOrXmlDecoder
+      .decode(resp, true)
+      .fold(
+        (_) => InvalidMessageBodyFailure(s"Decoding $debugLabel failed: CAS returned non-ok status code ${resp.status.code}"),
+        (body) => InvalidMessageBodyFailure(s"Decoding $debugLabel failed: CAS returned non-ok status code ${resp.status.code}: $body"))
+  }
+
+  /**
+   * Decode CAS Oppija's service ticket validation response to various oppija attributes.
+   */
+  def decodeOppijaAttributes: (Response) => Task[OppijaAttributes] = { response =>
+    decodeCASResponse[OppijaAttributes](response, "oppija attributes", oppijaServiceTicketDecoder)
+  }
+
+  /**
+   * Decode CAS Virkailija's service ticket validation response to username.
+   */
+  def decodeVirkailijaUsername: (Response) => Task[Username] = { response =>
+    decodeCASResponse[Username](response, "username", virkailijaServiceTicketDecoder)
+  }
+
+  private def decodeCASResponse[R](response: Response, debugLabel: String, decoder: EntityDecoder[R]): Task[R] = {
+    DecodeResult.success(response)
+      .flatMap[R] {
+        case resp if resp.status.isSuccess => decoder.decode(resp, true)
+        case resp                          => DecodeResult.failure(casFailure.apply(debugLabel, resp))
+      }.fold(e => throw new CasClientException(e.message), identity)
   }
 }
 
