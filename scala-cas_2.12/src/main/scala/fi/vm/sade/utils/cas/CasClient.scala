@@ -2,7 +2,7 @@ package fi.vm.sade.utils.cas
 
 import org.http4s.EntityDecoder.collectBinary
 import org.http4s.Status.Created
-import org.http4s.{Response, _}
+import org.http4s.{Header, Response, _}
 import org.http4s.client._
 import org.http4s.dsl._
 import org.http4s.headers.{Location, `Set-Cookie`}
@@ -233,11 +233,16 @@ private[cas] object SessionCookieClient {
 }
 
 private object FetchHelper {
-  private def defaultHeaders(callerId: String) : Header = Header("Caller-Id", callerId)
+  private def addDefaultHeaders(task: Task[Request], callerId: String) = {
+    task.putHeaders(
+      Header("Caller-Id", callerId),
+      Header("CSRF", callerId)
+    )
+  }
 
   def fetch[A](client: Client, callerId: String, task: Task[Request], handler: Response => Task[A]): Task[A] = {
-    val taskWithHeaders = task.putHeaders(defaultHeaders(callerId))
-    client.fetch(taskWithHeaders)(handler)
+    addDefaultHeaders(task, callerId)
+    client.fetch(task)(handler)
   }
 }
 
