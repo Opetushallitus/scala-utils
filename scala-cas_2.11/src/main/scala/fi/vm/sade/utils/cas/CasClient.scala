@@ -230,16 +230,21 @@ private[cas] object SessionCookieClient {
 }
 
 private object FetchHelper {
-  private def defaultHeaders(callerId: String) : Header = Header("Caller-Id", callerId)
+  private def addDefaultHeaders(task: Task[Request], callerId: String) = {
+    task.putHeaders(
+      Header("Caller-Id", callerId),
+      Header("CSRF", callerId)
+    )
+  }
 
   def fetch[A](client: Client, callerId: String, task: Task[Request], handler: Response => Task[A]): Task[A] = {
-    val taskWithHeaders = task.putHeaders(defaultHeaders(callerId))
-    client.fetch(taskWithHeaders)(handler)
+    addDefaultHeaders(task, callerId)
+    client.fetch(task)(handler)
   }
 
   def fetchAs[A](client: Client, callerId: String, task: Task[Request], decoder: EntityDecoder[A]): Task[A] = {
-    val taskWithHeaders = task.putHeaders(defaultHeaders(callerId))
-    client.fetchAs[A](taskWithHeaders)(decoder)
+    addDefaultHeaders(task, callerId)
+    client.fetchAs[A](task)(decoder)
   }
 }
 
