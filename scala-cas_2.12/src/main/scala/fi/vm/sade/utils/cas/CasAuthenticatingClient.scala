@@ -48,8 +48,7 @@ class CasAuthenticatingClient(casClient: CasClient,
   }
 
   private def addHeaders(req: Request, session: SessionCookie): Request = {
-    val csrf = "CasAuthenticatingClient"
-    val list: List[Header] = List(headers.Cookie(Cookie(sessionCookieName, session), Cookie("CSRF", csrf)), Header("CSRF", csrf), Header("Caller-Id", clientCallerId))
+    val list: List[Header] = List(headers.Cookie(Cookie(sessionCookieName, session), Cookie("CSRF", clientCallerId)), Header("CSRF", clientCallerId), Header("Caller-Id", clientCallerId))
     req.putHeaders(list: _*)
   }
 
