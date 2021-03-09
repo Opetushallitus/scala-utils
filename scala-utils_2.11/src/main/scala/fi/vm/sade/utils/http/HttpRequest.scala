@@ -6,7 +6,7 @@ import scala.collection.immutable.HashMap
 import scalaj.http.HttpResponse
 
 trait HttpRequest{
-  def responseWithHeaders(): (Int, Map[String, String], String)
+  def responseWithHeaders(): (Int, Map[String, Seq[String]], String)
   def response(): Option[String]
   def param(key: String, value: String): HttpRequest
   def header(key: String, value: String): HttpRequest
@@ -22,7 +22,7 @@ class DefaultHttpRequest(private val request: scalaj.http.HttpRequest) extends H
     new DefaultHttpRequest(request.header(key, value))
   }
 
-  def responseWithHeaders(): (Int, Map[String, String], String) = {
+  def responseWithHeaders(): (Int, Map[String, Seq[String]], String) = {
     try {
       val response: HttpResponse[String] = request.asString
       (response.code, response.headers, response.body)

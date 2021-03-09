@@ -243,6 +243,7 @@ private object FetchHelper {
       Header("Caller-Id", callerId),
       Header("CSRF", callerId)
     )
+    task.addCookie("CSRF", callerId)
   }
 
   def fetch[A](client: Client, callerId: String, task: Task[Request], handler: Response => Task[A]): Task[A] = {
