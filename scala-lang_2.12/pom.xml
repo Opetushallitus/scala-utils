@@ -18,7 +18,7 @@
   </organization>
   <properties>
     <scala.compat.version>2.12</scala.compat.version>
-    <scala.version>2.12.8</scala.version>
+    <scala.version>2.12.12</scala.version>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -30,7 +30,7 @@
       <dependency>
         <groupId>org.scalatest</groupId>
         <artifactId>scalatest_${scala.compat.version}</artifactId>
-        <version>3.0.5</version>
+        <version>3.1.1</version>
         <scope>test</scope>
         <exclusions>
           <exclusion>
