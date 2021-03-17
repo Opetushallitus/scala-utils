@@ -56,7 +56,7 @@
         <dependency>
             <groupId>org.scalatra.scalate</groupId>
             <artifactId>scalate-core_2.11</artifactId>
-            <version>1.8.0</version>
+            <version>1.9.0</version>
         </dependency>
         <dependency>
           <groupId>com.hubspot.jinjava</groupId>
