@@ -29,8 +29,8 @@ object DefaultHttpClient extends HttpClient {
   def httpPost(url: String, data: Option[String], options: HttpOptions.HttpOption*)(clientCallerId: String): HttpRequest = {
     val postRequest = Http(url).method("POST").options(options)
     data match {
-      case None => new DefaultHttpRequest(postRequest.postForm.header("Caller-Id", clientCallerId))
-      case Some(data) => new DefaultHttpRequest(postRequest.postData(data).header("Caller-Id", clientCallerId))
+      case None => new DefaultHttpRequest(postRequest.postForm.header("Caller-Id", clientCallerId).header("CSRF", clientCallerId).cookie("CSRF", clientCallerId))
+      case Some(data) => new DefaultHttpRequest(postRequest.postData(data).header("Caller-Id", clientCallerId).header("CSRF", clientCallerId).cookie("CSRF", clientCallerId))
     }
   }
 
@@ -39,7 +39,7 @@ object DefaultHttpClient extends HttpClient {
   }
 
   def httpPut(url: String, options: HttpOptions.HttpOption*)(clientCallerId: String) : HttpRequest = {
-    new DefaultHttpRequest(Http(url).method("PUT").options(options).header("Caller-Id", clientCallerId))
+    new DefaultHttpRequest(Http(url).method("PUT").options(options).header("Caller-Id", clientCallerId).header("CSRF", clientCallerId).cookie("CSRF", clientCallerId))
   }
 
 }

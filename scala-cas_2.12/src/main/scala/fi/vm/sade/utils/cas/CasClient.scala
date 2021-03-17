@@ -36,6 +36,10 @@ class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Loggi
     validateServiceTicket[OppijaAttributes](casBaseUrl, client, callerId, service, decodeOppijaAttributes)(serviceTicket)
   }
 
+  def validateServiceTicketWithVirkailijaUsername(service: String)(serviceTicket: ServiceTicket): Task[Username] = {
+    validateServiceTicket[Username](casBaseUrl, client, callerId, service, decodeVirkailijaUsername)(serviceTicket)
+  }
+
   def validateServiceTicket[R](service: String)(serviceTicket: ServiceTicket, responseHandler: Response => Task[R]): Task[R] = {
     validateServiceTicket[R](casBaseUrl, client, callerId, service, responseHandler)(serviceTicket)
   }
@@ -237,7 +241,7 @@ private object FetchHelper {
     task.putHeaders(
       Header("Caller-Id", callerId),
       Header("CSRF", callerId)
-    )
+    ).addCookie("CSRF", callerId)
   }
 
   def fetch[A](client: Client, callerId: String, task: Task[Request], handler: Response => Task[A]): Task[A] = {
