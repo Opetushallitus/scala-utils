@@ -15,7 +15,6 @@
         <module>scala-utils-validator_2.11</module>
         <module>scala-cas_2.11</module>
         <module>scala-properties_2.11</module>
-        <module>scala-ldap-client_2.11</module>
         <module>scala-json_2.11</module>
         <module>scala-captcha_2.11</module>
         <module>scala-lang_2.11</module>

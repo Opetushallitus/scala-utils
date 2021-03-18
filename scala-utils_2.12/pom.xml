@@ -8,44 +8,62 @@
         <relativePath>..</relativePath>
     </parent>
     <artifactId>scala-utils_2.12</artifactId>
-    <version>1.2.2-SNAPSHOT</version>
+    <version>1.2.3-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>scala-utils_2.12</name>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>1.7.30</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>2.12.2</version>
+            </dependency>
+            <dependency>
+                <groupId>org.scala-lang</groupId>
+                <artifactId>scala-library</artifactId>
+                <version>2.12.10</version> <!-- scalate-core_2.12 ei tue versiota 2.12.12 -->
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>fi.vm.sade</groupId>
             <artifactId>scala-logging_2.12</artifactId>
-            <version>1.3.0-SNAPSHOT</version>
+            <version>1.3.1-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
-            <version>2.12.6</version>
         </dependency>
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
-            <version>2.10</version>
+            <version>2.10.10</version>
         </dependency>
         <dependency>
             <groupId>com.typesafe</groupId>
             <artifactId>config</artifactId>
-            <version>1.3.3</version>
+            <version>1.4.1</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.9.6</version>
+            <version>2.12.2</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-yaml</artifactId>
-            <version>2.9.6</version>
+            <version>2.12.2</version>
         </dependency>
         <dependency>
             <groupId>org.scalatra.scalate</groupId>
             <artifactId>scalate-core_2.12</artifactId>
-            <version>1.9.0</version>
+            <version>1.9.6</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.scala-lang</groupId>
@@ -60,7 +78,7 @@
         <dependency>
           <groupId>com.hubspot.jinjava</groupId>
           <artifactId>jinjava</artifactId>
-          <version>2.4.8</version>
+          <version>2.5.6</version>
           <exclusions>
               <exclusion>
                   <groupId>com.fasterxml.jackson.core</groupId>
@@ -94,12 +112,12 @@
         <dependency>
             <groupId>com.github.cb372</groupId>
             <artifactId>scalacache-guava_2.12</artifactId>
-            <version>0.24.3</version>
+            <version>0.28.0</version>
         </dependency>
         <dependency>
             <groupId>org.specs2</groupId>
             <artifactId>specs2-core_2.12</artifactId>
-            <version>4.3.4</version>
+            <version>4.10.6</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -115,7 +133,7 @@
         <dependency>
             <groupId>org.specs2</groupId>
             <artifactId>specs2-junit_2.12</artifactId>
-            <version>4.3.4</version>
+            <version>4.10.6</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

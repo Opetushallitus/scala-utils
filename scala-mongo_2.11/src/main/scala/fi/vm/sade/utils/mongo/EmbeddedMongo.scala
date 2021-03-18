@@ -1,8 +1,9 @@
 package fi.vm.sade.utils.mongo
 
-import de.flapdoodle.embed.mongo.config.{IMongodConfig, MongoCmdOptionsBuilder, MongodConfigBuilder, Net, RuntimeConfigBuilder}
+import de.flapdoodle.embed.mongo.config.{ImmutableMongodConfig, MongoCmdOptions, MongodConfig, Net}
 import de.flapdoodle.embed.mongo.distribution.Version
-import de.flapdoodle.embed.mongo.{Command, MongodStarter}
+import de.flapdoodle.embed.mongo.MongodStarter
+import de.flapdoodle.embed.process.config.ImmutableRuntimeConfig
 import de.flapdoodle.embed.process.config.io.ProcessOutput
 import de.flapdoodle.embed.process.runtime.Network
 import fi.vm.sade.utils.slf4j.Logging
@@ -31,16 +32,16 @@ object EmbeddedMongo extends Logging {
 }
 
 class MongoServer(val port: Int) {
-  private val mongodConfig: IMongodConfig = new MongodConfigBuilder()
+  private val mongodConfig: MongodConfig = ImmutableMongodConfig.builder()
     .version(Version.Main.PRODUCTION)
-    .cmdOptions(new MongoCmdOptionsBuilder()
-    		.useStorageEngine("ephemeralForTest")
+    .cmdOptions(MongoCmdOptions.builder()
+    		.storageEngine("ephemeralForTest")
     		.build())
     .net(new Net(port, Network.localhostIsIPv6))
-    .setParameter("maxBSONDepth", "1000")
+    .putParams("maxBSONDepth", "1000")
     .build
-  private val runtimeConfig = new RuntimeConfigBuilder()
-    .defaults(Command.MongoD)
+  private val runtimeConfig = ImmutableRuntimeConfig.builder()
+    .isDaemonProcess(true)
     .processOutput(ProcessOutput.getDefaultInstanceSilent)
     .build();
   private val runtime: MongodStarter = MongodStarter.getInstance(runtimeConfig)
