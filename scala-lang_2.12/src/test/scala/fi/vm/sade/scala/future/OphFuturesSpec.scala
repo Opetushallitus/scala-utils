@@ -4,12 +4,13 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit.MILLISECONDS
 
 import fi.vm.sade.scala.future.OphFutures.parallelOr
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 
-class OphFuturesSpec extends FlatSpec with Matchers {
+class OphFuturesSpec extends AnyFlatSpec with Matchers {
   private implicit val ec: ExecutionContextExecutor = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(20))
 
   behavior of "OphFutures"
