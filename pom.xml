@@ -15,11 +15,11 @@
         <module>scala-utils-validator_2.11</module>
         <module>scala-cas_2.11</module>
         <module>scala-properties_2.11</module>
+        <module>scala-properties_2.12</module>
         <module>scala-properties_2.13</module>
         <module>scala-json_2.11</module>
+        <module>scala-json_2.12</module>
         <module>scala-json_2.13</module>
-        <module>scala-captcha_2.11</module>
-        <module>scala-captcha_2.13</module>
         <module>scala-lang_2.11</module>
         <module>scala-tcp_2.11</module>
         <module>scala-tcp_2.13</module>
@@ -29,17 +29,17 @@
         <module>scala-logging_2.13</module>
         <module>scala-utils_2.12</module>
         <module>scala-utils_2.13</module>
+        <module>scala-captcha_2.11</module>
+        <module>scala-captcha_2.13</module>
         <module>scala-cas_2.12</module>
-        <module>scala-properties_2.12</module>
-        <module>scala-properties_2.13</module>
-        <module>scala-json_2.12</module>
-        <module>scala-json_2.13</module>
         <module>scala-user-details_2.11</module>
         <module>scala-lang_2.12</module>
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    	<maven.compiler.source>1.8</maven.compiler.source>
+	    <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
     <build>
         <pluginManagement>
@@ -74,7 +74,7 @@
                 <configuration>
                     <args>
                         <arg>-deprecation</arg>
-                        <arg>-target:jvm-1.7</arg>
+                        <arg>-target:jvm-1.8</arg>
                     </args>
                 </configuration>
                 <executions>

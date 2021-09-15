@@ -4,6 +4,7 @@ import java.io.File
 
 import com.typesafe.config.{Config, ConfigException, ConfigFactory, ConfigValueFactory}
 import fi.vm.sade.utils.slf4j.Logging
+import scala.jdk.CollectionConverters._
 
 object ApplicationSettingsLoader extends Logging {
   def loadSettings[T <: ApplicationSettings](fileLocation: String)(implicit parser: ApplicationSettingsParser[T]): T = {
@@ -20,9 +21,8 @@ object ApplicationSettingsLoader extends Logging {
 abstract class ApplicationSettings(config: Config) {
 
   def toProperties = {
-    import scala.collection.JavaConversions._
 
-    val keys = config.entrySet().toList.map(_.getKey)
+    val keys = config.entrySet().asScala.toList.map(_.getKey)
     keys.map { key =>
       (key, config.getString(key))
     }.toMap

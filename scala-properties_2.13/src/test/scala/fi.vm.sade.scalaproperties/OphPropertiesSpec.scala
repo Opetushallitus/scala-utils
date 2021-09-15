@@ -1,15 +1,11 @@
+package fi.vm.sade.scalaproperties
+
 import java.util.Properties
+import org.scalatest.flatspec.AnyFlatSpec
 
-import fi.vm.sade.scalaproperties.OphProperties
-import org.junit.runner.RunWith
-import org.scalatest.junit.JUnitRunner
+class OphPropertiesSpec extends AnyFlatSpec {
 
-import org.scalatest._
-
-@RunWith(classOf[JUnitRunner])
-class OphPropertiesSpec extends FunSuite {
-
-  test("scala conversions") {
+  "Scala conversions" should "work with OphProperties" in {
     case class Pow(param: String, b: Option[String] = None)
     val ctx: OphProperties = new OphProperties()
     val props = new Properties()

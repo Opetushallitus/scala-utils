@@ -9,8 +9,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.google.common.base.Charsets
 import com.google.common.io.Resources
 import com.hubspot.jinjava.Jinjava
-
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object JinjaTemplateProcessor {
   val jinjava = new Jinjava()

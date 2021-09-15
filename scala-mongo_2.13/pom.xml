@@ -63,8 +63,6 @@
                         <arg>-feature</arg>
                         <arg>-encoding</arg>
                         <arg>utf8</arg>
-                        <arg>-Xmax-classfile-name</arg>
-                        <arg>100</arg>
                         <arg>-target:jvm-1.8</arg>
                     </args>
                 </configuration>

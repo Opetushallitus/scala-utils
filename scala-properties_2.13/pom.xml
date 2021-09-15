@@ -32,7 +32,7 @@
         <dependency>
             <groupId>org.scalatest</groupId>
             <artifactId>scalatest_2.13</artifactId>
-            <version>3.2.0-SNAP10</version>
+            <version>3.2.9</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>

@@ -1,29 +1,22 @@
 package fi.vm.sade.utils.captcha
 
 import com.typesafe.config.{ConfigException, ConfigFactory, Config}
-import scala.collection.JavaConversions._
+import scala.jdk.CollectionConverters._
 import org.junit.runner.RunWith
 import org.specs2.mutable.Specification
 import org.specs2.runner.JUnitRunner
 
 
 class CaptchaServiceSpecConfig(config: Config) extends CaptchaServiceComponent {
-  val captchaService = new RemoteCaptchaService(new CaptchaServiceSettings(config))
+  override val captchaService: CaptchaService = new RemoteCaptchaService(new CaptchaServiceSettings(config))
 }
 
 @RunWith(classOf[JUnitRunner])
 class CaptchaServiceSpec extends Specification {
 
-  "CaptchaService without properties set" should {
-
-    "should fail" in {
-      new CaptchaServiceSpecConfig(ConfigFactory.empty()) must throwA(new ConfigException.Missing("recaptcha"))
-    }
-  }
-
   "CaptchaService with no secret" should {
     val config: Map[String, String] = Map("recaptcha.verify.url" -> "http:/cc.cd", "recaptcha.secret" -> "", "recaptcha.caller.id" -> "id")
-    val service =  new CaptchaServiceSpecConfig(ConfigFactory.parseMap(config)).captchaService
+    val service =  new CaptchaServiceSpecConfig(ConfigFactory.parseMap(config.asJava)).captchaService
 
     "should accept any captcha" in {
       service.checkCaptcha("") must_== true
@@ -33,7 +26,7 @@ class CaptchaServiceSpec extends Specification {
 
   "CaptchaService with wrong service and wrong secret" should {
     val config: Map[String, String] = Map("recaptcha.verify.url" -> "http://x.x", "recaptcha.secret" -> "xyz", "recaptcha.caller.id" -> "id")
-    val service =  new CaptchaServiceSpecConfig(ConfigFactory.parseMap(config)).captchaService
+    val service =  new CaptchaServiceSpecConfig(ConfigFactory.parseMap(config.asJava)).captchaService
     val expectedError = new IllegalStateException("Captcha check request failed with responsecode 500 and response java.net.UnknownHostException: x.x")
 
     "should throw an exception with any captcha" in {
@@ -44,7 +37,7 @@ class CaptchaServiceSpec extends Specification {
 
   "CaptchaService with real service but wrong secret" should {
     val config: Map[String, String] = Map("recaptcha.verify.url" -> "https://www.google.com/recaptcha/api/siteverify", "recaptcha.secret" -> "xyz", "recaptcha.caller.id" -> "id")
-    val service =  new CaptchaServiceSpecConfig(ConfigFactory.parseMap(config)).captchaService
+    val service =  new CaptchaServiceSpecConfig(ConfigFactory.parseMap(config.asJava)).captchaService
 
     "should fail with any captcha" in {
       service.checkCaptcha("") must_== false
