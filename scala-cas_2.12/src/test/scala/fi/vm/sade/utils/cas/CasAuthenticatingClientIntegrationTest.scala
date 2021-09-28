@@ -1,16 +1,24 @@
 package fi.vm.sade.utils.cas
 
-import org.http4s.{Uri, _}
-import org.http4s.client.blaze
-import org.scalatest.{Tag, FreeSpec, Matchers}
+import cats.effect.IO
+import cats.effect.unsafe.IORuntime
+import org.http4s.Status.Ok
+import org.http4s._
+import org.http4s.blaze.client.BlazeClientBuilder
+import org.scalatest.Tag
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
 
-import scalaz.{-\/, \/-}
-class CasAuthenticatingClientIntegrationTest extends FreeSpec with Matchers {
+import scala.concurrent.ExecutionContext.global
+
+
+class CasAuthenticatingClientIntegrationTest extends AnyFreeSpec with Matchers {
+  implicit val runtime: IORuntime = cats.effect.unsafe.IORuntime.global
+
   private def uriFromString(uri: String): Uri = {
     Uri.fromString(uri) match {
-      case \/-(result) => result
-      case -\/(failure) =>
-        throw new IllegalArgumentException("Cannot create URI: " + uri + ": " + failure)
+      case Right(result) => result
+      case Left(failure) => throw new IllegalArgumentException("Cannot create URI: " + uri + ": " + failure)
     }
   }
   private def requiredEnv(name: String) = scala.util.Properties.envOrNone(name).getOrElse(throw new IllegalStateException("Environment property " + name + " missing"))
@@ -20,23 +28,20 @@ class CasAuthenticatingClientIntegrationTest extends FreeSpec with Matchers {
     val virkailijaUser: String = requiredEnv("VIRKAILIJA_USER")
     val virkailijaPassword: String = requiredEnv("VIRKAILIJA_PASSWORD")
 
-    val casClient = new CasClient(virkailijaUrl + "/cas", blaze.defaultClient, "my-caller-id")
+    val blazeClient = BlazeClientBuilder[IO](global).allocated.map(_._1).unsafeRunSync()
+    val casClient = new CasClient(virkailijaUrl + "/cas", blazeClient, "my-caller-id")
     val casAuthenticatingClient = CasAuthenticatingClient(
       casClient,
       CasParams("/kayttooikeus-service", virkailijaUser, virkailijaPassword),
-      blaze.defaultClient,
+      blazeClient,
       "koski",
       "JSESSIONID"
     )
-    val request = Request(uri = uriFromString(virkailijaUrl + "/kayttooikeus-service/henkilo/current/omattiedot"))
-    val result = casAuthenticatingClient.fetch(request) { response =>
-      response.status match {
-        case Status.Ok => response.as[String]
-        case other => throw new RuntimeException("Response code " + other)
-      }
-
-    }.run
-    println(result)
+    val request = Request[IO](uri = uriFromString(virkailijaUrl + "/kayttooikeus-service/henkilo/current/omattiedot"))
+    val result = casAuthenticatingClient.run(request).use {
+      case Ok(response) => response.as[String]
+      case other => throw new RuntimeException("Response code " + other)
+    }
   }
 }
 
