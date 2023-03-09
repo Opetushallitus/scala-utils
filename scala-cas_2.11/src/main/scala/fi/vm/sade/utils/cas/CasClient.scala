@@ -124,9 +124,9 @@ class CasClient(casBaseUrl: Uri, client: Client, callerId: String) extends Loggi
     .flatMapR[Username] { serviceResponse => {
         val user = (serviceResponse \ "authenticationSuccess" \ "user")
         user.length match {
-          case 1 => DecodeResult.successT(user.text)
+          case 1 => DecodeResult.success(user.text)
           case _ =>
-            DecodeResult.failureT(InvalidMessageBodyFailure(
+            DecodeResult.failure(InvalidMessageBodyFailure(
               s"Virkailija Service Ticket validation response decoding failed: response body is of wrong form ($serviceResponse)"
             ))
         }
