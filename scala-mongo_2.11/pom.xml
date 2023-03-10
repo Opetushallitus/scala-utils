@@ -58,6 +58,7 @@
                     <source>1.8</source>
                     <target>1.8</target>
                     <args>
+                        <arg>-nobootcp</arg>
                         <arg>-unchecked</arg>
                         <arg>-deprecation</arg>
                         <arg>-feature</arg>

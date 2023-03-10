@@ -136,13 +136,16 @@ class CasClient(casBaseUrl: Uri, client: Client[IO], callerId: String) extends L
   private val virkailijaServiceTicketDecoder: EntityDecoder[IO, Username] =
     textOrXmlDecoder
       .map(s => Utility.trim(scala.xml.XML.loadString(s)))
-      .flatMapR[Username] {
-        case <cas:serviceResponse><cas:authenticationSuccess><cas:user>{user}</cas:user></cas:authenticationSuccess></cas:serviceResponse> =>
-          DecodeResult.successT(user.text)
-        case authenticationFailure: Node =>
-          DecodeResult.failureT(InvalidMessageBodyFailure(
-            s"Virkailija Service Ticket validation response decoding failed: response body is of wrong form ($authenticationFailure)"
-          ))
+      .flatMapR[Username] { serviceResponse => {
+          val user = (serviceResponse \ "authenticationSuccess" \ "user")
+          user.length match {
+            case 1 => DecodeResult.successT(user.text)
+            case _ =>
+              DecodeResult.failureT(InvalidMessageBodyFailure(
+                s"Virkailija Service Ticket validation response decoding failed: response body is of wrong form ($serviceResponse)"
+              ))
+          }
+        }
       }
 
   private def casFailure[R](debugLabel: String, resp: Response[IO]): EitherT[IO, DecodeFailure, R] = {
