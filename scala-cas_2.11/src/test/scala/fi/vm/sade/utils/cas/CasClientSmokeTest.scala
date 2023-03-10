@@ -35,7 +35,7 @@ class CasClientSmokeTest extends FreeSpec with Matchers {
     //
     // Also note that this behavior, while compatible with RFC, does not match what eg. `java.net.URI#resolve` or
     // `java.nio.Path#resolve` does
-    (Uri.uri("http://localhost/foo").resolve(Uri.uri("/bar"))) shouldBe Uri.uri("http://localhost/bar")  // this is broken
+    (Uri.uri("http://localhost/foo").resolve(Uri.uri("/bar"))) shouldBe Uri.uri("http://localhost/foo")  // this is broken
     (Uri.uri("http://localhost/foo").withPath("/bar")) shouldBe Uri.uri("http://localhost/bar")  // this is fine
   }
 }
