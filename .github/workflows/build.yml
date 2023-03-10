@@ -28,9 +28,3 @@ jobs:
 
       - name: Package
         run: mvn clean package -B
-
-      - uses: actions/cache@v2
-        id: restore-build
-        with:
-          path: */target
-          key: ${{ github.sha }}
