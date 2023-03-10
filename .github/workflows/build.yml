@@ -1,5 +1,6 @@
 name: scala-utils
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     branches-ignore:
