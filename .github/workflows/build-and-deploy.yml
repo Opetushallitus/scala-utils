@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - 'scala-cas-v2'
+      - 'scala-cas_2.12-old-v2'
 jobs:
   build:
     uses: './.github/workflows/build.yml'
